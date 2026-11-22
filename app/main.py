@@ -329,6 +329,16 @@ async def _run_stream_setup(svc: _Services, query_text: str, session_id: str, us
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
+def apply_execution_gate(settings) -> bool:  # noqa: ANN001
+    """Fail closed: the local executor needs an explicit opt-in. Returns True if it switched the flags off."""
+    if settings.executor_mode != "runner" and not settings.allow_local_executor:
+        settings.playground_enabled = False
+        settings.agent_enabled = False
+        logger.warning("Local code executor not allowed: Playground and Agent are switched off")
+        return True
+    return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -341,6 +351,7 @@ async def lifespan(app: FastAPI):
     register_prompts()  # no-op without Opik
     dogfood.set_enabled(settings.dogfood_enabled)
     logger.info("Starting FastPilot backend (debug=%s)", settings.debug)
+    apply_execution_gate(settings)
 
     # Each getter degrades internally — construction never raises.
     app.state.pipeline = get_rag_pipeline()
@@ -717,8 +728,12 @@ def create_app() -> FastAPI:
             "semantic_cache": "healthy" if svc.cache.is_healthy() else "degraded",
             "conversation": "healthy" if svc.conversation.is_healthy() else "degraded",
         }
+        mode = get_settings().executor_mode
+        if mode == "runner":
+            runner_ok = await asyncio.to_thread(http.app.state.executor.is_healthy)
+            comps["code_runner"] = "healthy" if runner_ok else "degraded"
         status = "healthy" if all(v == "healthy" for v in comps.values()) else "degraded"
-        return HealthResponse(status=status, components=comps)
+        return HealthResponse(status=status, components=comps, executor="runner" if mode == "runner" else "local")
 
     @application.get("/metrics", response_model=MetricsResponse, tags=["Monitoring"])
     async def metrics(http: Request):  # noqa: ANN202

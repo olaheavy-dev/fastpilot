@@ -25,14 +25,21 @@ def _no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch)
         if request.node.get_closest_marker(marker):
             return
 
-    def _blocked(*_a: object, **_k: object):  # noqa: ANN202
-        raise RuntimeError(
-            "Network access blocked in a unit test. Mock the call, or mark it "
-            "@pytest.mark.integration / @pytest.mark.live."
-        )
+    real_connect, real_connect_ex = socket.socket.connect, socket.socket.connect_ex
 
-    monkeypatch.setattr(socket.socket, "connect", _blocked)
-    monkeypatch.setattr(socket.socket, "connect_ex", _blocked)
+    def _guard(real):  # noqa: ANN001, ANN202
+        def _checked(self: socket.socket, *a: object, **k: object):  # noqa: ANN202
+            if self.family == socket.AF_UNIX:  # a local socket file is not the network
+                return real(self, *a, **k)
+            raise RuntimeError(
+                "Network access blocked in a unit test. Mock the call, or mark it "
+                "@pytest.mark.integration / @pytest.mark.live."
+            )
+
+        return _checked
+
+    monkeypatch.setattr(socket.socket, "connect", _guard(real_connect))
+    monkeypatch.setattr(socket.socket, "connect_ex", _guard(real_connect_ex))
 
 
 # --- Opik guard -----------------------------------------------------------

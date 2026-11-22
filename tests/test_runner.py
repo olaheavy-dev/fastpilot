@@ -10,7 +10,6 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
-import socket
 import stat
 import subprocess
 import tempfile
@@ -29,7 +28,6 @@ from runner.server import bind_socket, create_app
 from runner.slots import KillerError, SlotPool, clean_uid_tmp, kill_uid_processes
 
 UIDS = [61001, 61002]
-_REAL_CONNECT = socket.socket.connect  # captured at import, before the conftest guard patches it
 
 
 @dataclass
@@ -541,19 +539,10 @@ def test_bind_socket_as_root_sets_owner_and_parent(short_dir, monkeypatch):
         sock.close()
 
 
-def test_bound_socket_serves_the_app(short_dir, monkeypatch):
+def test_bound_socket_serves_the_app(short_dir):
     """The socket from ``bind_socket`` works with ``uvicorn.Server.run(sockets=...)``."""
     import uvicorn
 
-    # The conftest network guard blocks every ``connect``; allow local Unix sockets only.
-    guarded = socket.socket.connect
-
-    def connect(self: socket.socket, address) -> None:  # noqa: ANN001
-        if self.family != socket.AF_UNIX:
-            return guarded(self, address)
-        return _REAL_CONNECT(self, address)
-
-    monkeypatch.setattr(socket.socket, "connect", connect)
     path = os.path.join(short_dir, "r.sock")
     sock = bind_socket(path)
     app = create_app(_factory(), UIDS, killer=lambda uid: 0)

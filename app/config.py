@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     executor_wall_timeout_s: int = 15
     executor_cpu_seconds: int = 10
     executor_mem_mb: int = 512
+    executor_mode: str = "local"  # "local" (in-process subprocess) | "runner" (sidecar container)
+    runner_socket: str = "/run/runner/runner.sock"
+    # Fail closed: with mode "local" and this False, the Playground and Agent are switched off.
+    allow_local_executor: bool = True
     playground_max_code_bytes: int = 10_240  # 10KB
     playground_rate_per_min: int = 3
     agent_budget_s: int = 90  # total wall budget for an agent run before honest-failure

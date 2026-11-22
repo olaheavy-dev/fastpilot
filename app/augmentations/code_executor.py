@@ -43,6 +43,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -383,19 +384,24 @@ class SubprocessExecutor:
             )
 
 
-_executor: SubprocessExecutor | None = None
+_executor: Any = None
 
 
-def get_executor() -> SubprocessExecutor:
-    """Singleton executor built from settings (wall/cpu/mem from config)."""
+def get_executor() -> Any:
+    """Singleton executor from settings: the runner sidecar client, or the local subprocess one."""
     global _executor
     if _executor is None:
         from app.config import get_settings
 
         s = get_settings()
-        _executor = SubprocessExecutor(
-            wall_timeout_s=s.executor_wall_timeout_s,
-            cpu_seconds=s.executor_cpu_seconds,
-            mem_mb=s.executor_mem_mb,
-        )
+        if s.executor_mode == "runner":
+            from app.augmentations.runner_client import RunnerClient
+
+            _executor = RunnerClient(s.runner_socket, s.executor_wall_timeout_s + 10)
+        else:
+            _executor = SubprocessExecutor(
+                wall_timeout_s=s.executor_wall_timeout_s,
+                cpu_seconds=s.executor_cpu_seconds,
+                mem_mb=s.executor_mem_mb,
+            )
     return _executor
