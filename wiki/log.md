@@ -29,6 +29,14 @@ The sandbox scan is a filter, not a boundary, so generated code now runs in a se
   [[component-architecture]], [[feature-coverage]], [[onboarding]], [[overview]], [[endpoint-summary]],
   [[testing-strategy]], `README.md`, `DEPLOY.md` (Railway marked historical),
   `docs/production-decisions.md` (D6 update) and `docs/augmentation-decisions.md`.
+- **Final review fixes:** the runner's slot wait now ends after `RUNNER_QUEUE_WAIT_S` (8 s) with
+  `[runner] busy`, so a job the backend gave up on never runs later; `RunnerClient` caps calls in flight
+  at `RUNNER_MAX_IN_FLIGHT` (3) and answers `[sandbox] code runner busy` at once over that; client
+  timeout is wall + 15 s (was + 10); each slot gets `max_procs=48` (under `pids_limit: 128`); the
+  integration test polls until the run folder belongs to a slot uid; doc fixes (three services, softer
+  Railway wording, README tech line, "process memory", 256 MB is per process). Touched
+  [[component-architecture]], the design spec and plan, `DEPLOY.md`, `README.md`,
+  `docs/production-decisions.md`.
 
 ---
 

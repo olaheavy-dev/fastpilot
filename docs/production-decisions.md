@@ -78,7 +78,7 @@ Regression tests for each finding are in `tests/test_executor.py`.
 container (no network, no keys, read-only filesystem, `cap_drop: ALL` plus four needed capabilities,
 `no-new-privileges`, 768 MB memory, 128 processes). The backend reaches it over a Unix socket and fails
 closed when it is down. Each of two slots has its own uid (61001, 61002), so one visitor cannot read
-another's files or processes; after every run leftover processes are killed and the slot's files are
+another's files or process memory; after every run leftover processes are killed and the slot's files are
 deleted, and a failed clean-up holds the slot back and restarts the runner. A startup gate turns Agent
 and Playground off if code would run inside the backend and that is not explicitly allowed
 (`ALLOW_LOCAL_EXECUTOR`). Proof tests (`tests/test_runner_integration.py`, `-m integration`, need
@@ -202,7 +202,7 @@ stateful runs in a Railway container.
 `API_BASE_URL=http://backend.railway.internal:<PORT>`. `.env` and `.streamlit/secrets.toml` are git- and
 gitingest-ignored.
 
-**Local dev & CI parity:** `docker compose up backend frontend` mirrors the two-service topology
+**Local dev & CI parity:** `docker compose up backend frontend` mirrors the service topology (now three services: backend, frontend, runner)
 against the same managed Redis/Qdrant; a profiled `redis-stack` container (port 6380) is a
 RediSearch stand-in for `pytest -m integration` only — it is never used by the running app.
 

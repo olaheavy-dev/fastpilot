@@ -75,7 +75,7 @@ chooses) is fixed. Every production service is an explicit **add / skip decision
 documented in [`docs/production-decisions.md`](docs/production-decisions.md).
 
 **Tech:** FastAPI · Streamlit · Qdrant Cloud · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5
-Flash · Redis Cloud (RediSearch) · Opik/Comet · Docker · Railway · `uv`.
+Flash · Redis Cloud (RediSearch) · Opik/Comet · Docker (self-hosted VPS) · `uv`.
 
 ---
 

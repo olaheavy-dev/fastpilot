@@ -25,8 +25,8 @@ keyed on a session id the client chooses) is fixed.
 ## Historical: Railway (offline)
 
 The original setup was **two services in one Railway project** (class week-5 topology): a private
-`backend` (FastAPI) and a public `frontend` (Streamlit). Railway cannot run the runner container's
-Unix-socket setup, which is one reason for the move. State is managed and external (Redis Cloud and
+`backend` (FastAPI) and a public `frontend` (Streamlit). The runner container needs a volume shared by
+two containers and a no-network service, which the old Railway setup did not have. State is managed and external (Redis Cloud and
 Qdrant Cloud); nothing stateful runs in a container.
 
 ## How it deploys — Railway's native GitHub integration (NOT GitHub Actions)

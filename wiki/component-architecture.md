@@ -148,14 +148,18 @@ flowchart LR
   128 processes, `init: true`. No `env_file`, so no keys.
 - **Socket:** `/run/fastpilot/runner.sock`, `root:1500`, mode `0660`, in a `root:root 0755` folder on
   a shared volume. The slot uids are not in group 1500, so run code cannot connect to it.
-- **Two slots:** uids 61001 and 61002, so two visitors cannot read each other's files or processes.
+- **Two slots:** uids 61001 and 61002, so two visitors cannot read each other's files or process memory.
   After every run the runner kills leftover processes (including zombie leaders with live threads)
   and deletes the slot's files in `/tmp` and `/dev/shm` as that uid.
 - **Fail-closed hold:** if a kill or clean-up fails, the slot is held back and the runner restarts.
   The runner also restarts after 200 runs or 6 hours; new runs then get `[runner] restarting`.
+- **Queue limits:** a request waits at most `RUNNER_QUEUE_WAIT_S` (8 s) for a free slot, then gets
+  `[runner] busy`. The backend's `RunnerClient` allows `RUNNER_MAX_IN_FLIGHT` (3) calls at once; one
+  more gets `[sandbox] code runner busy` at once, so waiting calls cannot fill the thread pool Chat uses.
+  Each process is limited to 256 MB and each slot to 48 processes.
 - **Backend side:** `RunnerClient` returns `unavailable=True` when the runner is down, never
   falling back to local execution. Settings: `EXECUTOR_MODE` (`local` | `runner`), `RUNNER_SOCKET`,
-  `ALLOW_LOCAL_EXECUTOR`. `/health` shows `executor` and, in runner mode, `components.code_runner`.
+  `RUNNER_MAX_IN_FLIGHT`, `ALLOW_LOCAL_EXECUTOR`. Client timeout: `EXECUTOR_WALL_TIMEOUT_S` + 15 s. `/health` shows `executor` and, in runner mode, `components.code_runner`.
 - **What it does not do:** escaped code can still use the runner's CPU and memory, within the limits
   above. The `/execute` rate limit is keyed on a session id the client chooses (issue #12), so Agent
   and Playground should not go public until the VPS move is done and that issue is fixed.

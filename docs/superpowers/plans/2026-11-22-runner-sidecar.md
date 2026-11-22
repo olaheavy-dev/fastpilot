@@ -16,7 +16,7 @@
 - Runner environment (non-secret only): `EXECUTOR_WALL_TIMEOUT_S=15`, `EXECUTOR_CPU_SECONDS=10`, `EXECUTOR_MEM_MB=256`, `RUNNER_SLOTS=2`; compose sets the same values for the backend from one YAML anchor.
 - Slot uids/gids: `61001`, `61002`. Socket: `/run/fastpilot/runner.sock`, folder `root:root 0755`, socket `root:1500 0660`, bound by our code (never `uvicorn --uds`).
 - Restart freshness: runner exits 0 after 200 runs or 6 hours (6 × 3600 s), after finishing in-flight runs.
-- Backend settings: `executor_mode: Literal["local", "runner"] = "local"`, `runner_socket: str = "/run/fastpilot/runner.sock"`, `allow_local_executor: bool = True`. Client timeout = `executor_wall_timeout_s + 10`.
+- Backend settings: `executor_mode: Literal["local", "runner"] = "local"`, `runner_socket: str = "/run/fastpilot/runner.sock"`, `allow_local_executor: bool = True`. Client timeout = `executor_wall_timeout_s + 15` (was + 10; changed in the final review).
 - Fail closed: runner unreachable/timeout → `ExecutionResult(unavailable=True)`; never run locally in runner mode.
 - Startup gate: if (`agent_enabled` or `playground_enabled`) and `executor_mode == "local"` and not `allow_local_executor` → log an error, set both flags False.
 - Hermetic default: `uv run pytest` needs no Docker. Docker tests are `@pytest.mark.integration`. Coverage gate 90% on `app` (add `runner` to coverage source).
@@ -125,7 +125,7 @@ def test_health_reports_runs_and_free_slots(): ...
 
 **Interfaces:**
 - Consumes: `create_app`, `bind_socket` from Task 2 (tests serve the real runner app with a fake executor on a temp socket via `uvicorn.Server` in a thread).
-- Produces: `class RunnerClient: __init__(socket_path: str, timeout_s: float); run(code: str) -> ExecutionResult; is_healthy() -> bool`. Any `httpx.HTTPError`, `OSError` or bad JSON → `ExecutionResult(-1, "", "[sandbox] code runner unavailable", 0, unavailable=True)`. `get_executor()` returns `RunnerClient(settings.runner_socket, settings.executor_wall_timeout_s + 10)` when `executor_mode == "runner"`. `apply_execution_gate(settings) -> bool` in `app/main.py` returns True when it turned the flags off.
+- Produces: `class RunnerClient: __init__(socket_path: str, timeout_s: float); run(code: str) -> ExecutionResult; is_healthy() -> bool`. Any `httpx.HTTPError`, `OSError` or bad JSON → `ExecutionResult(-1, "", "[sandbox] code runner unavailable", 0, unavailable=True)`. `get_executor()` returns `RunnerClient(settings.runner_socket, settings.executor_wall_timeout_s + 15, max_in_flight=settings.runner_max_in_flight)` (final review: + 15, was + 10; in-flight cap added) when `executor_mode == "runner"`. `apply_execution_gate(settings) -> bool` in `app/main.py` returns True when it turned the flags off.
 
 - [ ] **Step 1: Write the failing tests**
 

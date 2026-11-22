@@ -55,7 +55,8 @@ visitors' code or output. The worst it can do is waste the runner's CPU and memo
 
 - VPS: Hetzner cx23, 4 GB RAM, about 2.8 GB available today, shared with other apps. Founder's choice:
   "256 MB per run, 2 at once, 768 MB cap (Recommended)", so `EXECUTOR_MEM_MB=256`, 2 slots, `mem_limit: 768m`
-  (2 × 256 MB children plus about 100 MB for uvicorn, with headroom), `pids_limit: 128`.
+  (2 × 256 MB children plus about 100 MB for uvicorn, with headroom), `pids_limit: 128`. The 256 MB limit is
+  per process (a run may start several processes, up to 48), so the 768 MB container cap is the real bound.
 - Infra rules (`~/source/code/infra`): no Docker socket for apps; `no-new-privileges`; images published to
   GHCR as `:main` and `sha-<commit>`; Watchtower updates by label and scope.
 - The backend image runs as root today; the privilege drop to `nobody` inside the runner needs root plus the
@@ -105,7 +106,9 @@ flowchart LR
   - `POST /run` with `{"code": str}` → the `ExecutionResult` fields as JSON.
   - `GET /health` → `{"status": "ok", "runs": <count>, "slots_free": <count>}`. (Changed during build: the first draft returned the runner's `uid`; `slots_free` is more useful to the backend's health check.)
 - **Two slots**, each with its own uid/gid: slot 1 = 61001, slot 2 = 61002 (fixed numbers, not used by any
-  other account in the image). A request takes a free slot or waits for one, up to the backend's timeout.
+  other account in the image). A request takes a free slot or waits for one, up to `RUNNER_QUEUE_WAIT_S` (default 8 s, under the backend's
+  timeout); after that it gets `[runner] busy` (`unavailable=True`), so a job the backend gave up on never runs
+  later for nobody. (Changed in the final review: the first draft waited forever.)
 - **After every run in a slot** (success, error or timeout): kill every process owned by that slot's uid
   (scan `/proc/*/status` for the uid, send `SIGKILL`; root has `CAP_KILL`), then delete the slot's folder as
   that uid. Founder's choice: "Kill leftovers after every run (Recommended)". This is what stops one
@@ -164,10 +167,13 @@ runner:
 
 - New `app/augmentations/runner_client.py`: `RunnerClient` with the same interface as `SubprocessExecutor`:
   `run(code: str) -> ExecutionResult`. It uses `httpx.Client(transport=httpx.HTTPTransport(uds=path))`, a
-  timeout of `executor_wall_timeout_s + 10` seconds, and maps the JSON back to `ExecutionResult`.
+  timeout of `executor_wall_timeout_s + 15` seconds (changed from + 10 in the final review), and maps the JSON back to `ExecutionResult`.
 - New setting `executor_mode: Literal["local", "runner"]` (env `EXECUTOR_MODE`), default `"local"` so tests
   and plain local runs keep working, and `runner_socket: str = "/run/fastpilot/runner.sock"`.
 - `get_executor()` returns `RunnerClient` when `executor_mode == "runner"`, else `SubprocessExecutor`.
+- `RunnerClient` allows at most `runner_max_in_flight` (default 3: the runner's 2 slots + 1) calls at once. A
+  call over that limit gets `[sandbox] code runner busy` (`unavailable=True`) at once, so waiting Playground and
+  Agent calls cannot fill the backend's thread pool, which Chat's RAG pipeline also uses.
 - **Fail closed:** if the runner cannot be reached or times out, `RunnerClient.run` returns an
   `ExecutionResult` with `unavailable=True` (added in PR #17). `/execute` already maps that to the
   `unavailable` guard ("The code sandbox isn't available right now"), and the Agent stops instead of spending
@@ -237,5 +243,5 @@ runner:
 ## Left to the builder
 
 - Exact file layout inside `runner/`, logging format, and how the restart counter is implemented.
-- Whether the semaphore wait has its own timeout or relies on the client timeout.
+- Whether the semaphore wait has its own timeout or relies on the client timeout. Resolved in the final review: its own timeout, `RUNNER_QUEUE_WAIT_S` (8 s).
 - Dockerfile details (base image `python:3.12-slim` to match the backend).
