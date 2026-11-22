@@ -337,8 +337,13 @@ class SubprocessExecutor:
             if not drop and not _warned_no_drop:
                 _warn_no_drop()
             if drop:  # the unprivileged child must own its cwd + script to read/write them
-                for path in (tmp, script):
-                    os.chown(path, self.sandbox_uid, self.sandbox_gid)
+                # In the runner container root has no DAC_OVERRIDE, so ownership alone decides what
+                # root can reach. Hand the script over first (root can't reach into the folder once
+                # the slot uid owns it). The folder keeps root's group with search-only access (0710):
+                # Popen changes into it as root, before switching uid. Other slot uids get nothing.
+                os.chown(script, self.sandbox_uid, self.sandbox_gid)
+                os.chmod(tmp, 0o710)
+                os.chown(tmp, self.sandbox_uid, os.getegid())
             start = time.monotonic()
             try:
                 proc = self._spawn(tmp, drop)

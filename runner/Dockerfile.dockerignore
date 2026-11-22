@@ -1,0 +1,11 @@
+# Build context for runner/Dockerfile is the repo root. Send only what the image copies, so the
+# context never carries .env, .venv or anything else (BuildKit reads <Dockerfile>.dockerignore).
+*
+!app/__init__.py
+!app/augmentations/__init__.py
+!app/augmentations/code_executor.py
+!app/augmentations/security.py
+!runner/__init__.py
+!runner/server.py
+!runner/slots.py
+!runner/requirements.txt

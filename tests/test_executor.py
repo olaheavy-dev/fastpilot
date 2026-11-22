@@ -261,6 +261,29 @@ def test_popen_uses_configured_slot_uid_as_root(monkeypatch):
     assert captured["user"] == 61001 and captured["group"] == 61001 and captured["extra_groups"] == []
 
 
+def test_run_folder_handover_works_without_dac_override(monkeypatch):
+    """Root in the runner has no DAC_OVERRIDE. The script is handed over first (root can't reach into
+    the folder afterwards); the folder gets mode 0710 before root gives it away (chmod needs ownership)
+    and keeps root's group, so Popen can change into it as root before the uid switch."""
+    import os
+
+    from app.augmentations import code_executor as ce
+
+    calls: list[tuple] = []
+    _fake_root(monkeypatch, ce, {})
+    monkeypatch.setattr(ce.os, "chown", lambda p, u, g: calls.append(("chown", str(p), u, g)))
+    monkeypatch.setattr(ce.os, "chmod", lambda p, m: calls.append(("chmod", str(p), m)))
+    monkeypatch.setattr(ce, "_cleanup_as", lambda *a: None)
+    ce.SubprocessExecutor(wall_timeout_s=2, sandbox_uid=61001, sandbox_gid=61001).run("print(1)\n")
+    script, folder = calls[0][1], calls[1][1]
+    assert script.endswith("/main.py") and folder == script.rsplit("/", 1)[0]
+    assert calls == [
+        ("chown", script, 61001, 61001),
+        ("chmod", folder, 0o710),
+        ("chown", folder, 61001, os.getegid()),
+    ]
+
+
 def test_cleanup_runs_as_slot_uid_when_root(monkeypatch):
     from app.augmentations import code_executor as ce
 

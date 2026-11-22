@@ -203,6 +203,7 @@ def main() -> None:
     app = create_app(factory, SLOT_UIDS[:slots])
     server = uvicorn.Server(uvicorn.Config(app, log_level="info", lifespan="off", timeout_graceful_shutdown=wall + 15))
     sock = bind_socket(SOCKET_PATH, gid=SOCKET_GID)
+    logger.info("runner listening on unix socket %s with %d slot(s)", SOCKET_PATH, slots)
     done = threading.Event()
     watcher = threading.Thread(
         target=_watch_for_exit, args=(app.state.ready_to_exit, server), kwargs={"done": done}, daemon=True
