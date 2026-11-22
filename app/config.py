@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -82,8 +83,8 @@ class Settings(BaseSettings):
     executor_wall_timeout_s: int = 15
     executor_cpu_seconds: int = 10
     executor_mem_mb: int = 512
-    executor_mode: str = "local"  # "local" (in-process subprocess) | "runner" (sidecar container)
-    runner_socket: str = "/run/runner/runner.sock"
+    executor_mode: Literal["local", "runner"] = "local"  # in-process subprocess or sidecar
+    runner_socket: str = "/run/fastpilot/runner.sock"
     # Fail closed: with mode "local" and this False, the Playground and Agent are switched off.
     allow_local_executor: bool = True
     playground_max_code_bytes: int = 10_240  # 10KB

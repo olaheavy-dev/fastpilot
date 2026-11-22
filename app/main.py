@@ -331,10 +331,14 @@ async def _run_stream_setup(svc: _Services, query_text: str, session_id: str, us
 # ---------------------------------------------------------------------------
 def apply_execution_gate(settings) -> bool:  # noqa: ANN001
     """Fail closed: the local executor needs an explicit opt-in. Returns True if it switched the flags off."""
-    if settings.executor_mode != "runner" and not settings.allow_local_executor:
+    if (
+        settings.executor_mode != "runner"
+        and not settings.allow_local_executor
+        and (settings.playground_enabled or settings.agent_enabled)
+    ):
         settings.playground_enabled = False
         settings.agent_enabled = False
-        logger.warning("Local code executor not allowed: Playground and Agent are switched off")
+        logger.error("Local code executor not allowed: Playground and Agent are switched off")
         return True
     return False
 

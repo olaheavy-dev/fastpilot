@@ -137,3 +137,44 @@ def test_guard_still_blocks_inet_connect():
             s.connect(("127.0.0.1", 9))
     finally:
         s.close()
+
+
+def test_settings_runner_socket_matches_runner_default():
+    from app.config import Settings
+    from runner.server import SOCKET_PATH
+
+    assert Settings().runner_socket == SOCKET_PATH
+
+
+def test_settings_rejects_invalid_executor_mode(monkeypatch):
+    from pydantic import ValidationError
+
+    from app.config import Settings
+
+    monkeypatch.setenv("EXECUTOR_MODE", "runnner")
+    with pytest.raises(ValidationError):
+        Settings()
+
+
+def test_gate_logs_error_when_it_turns_flags_off(caplog):
+    from types import SimpleNamespace
+
+    from app.main import apply_execution_gate
+
+    s = SimpleNamespace(executor_mode="local", allow_local_executor=False, playground_enabled=True, agent_enabled=False)
+    with caplog.at_level("DEBUG"):
+        assert apply_execution_gate(s) is True
+    assert any(r.levelname == "ERROR" for r in caplog.records)
+
+
+def test_gate_silent_when_both_flags_already_off(caplog):
+    from types import SimpleNamespace
+
+    from app.main import apply_execution_gate
+
+    s = SimpleNamespace(
+        executor_mode="local", allow_local_executor=False, playground_enabled=False, agent_enabled=False
+    )
+    with caplog.at_level("DEBUG"):
+        assert apply_execution_gate(s) is False
+    assert not caplog.records
