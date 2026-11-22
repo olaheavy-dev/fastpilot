@@ -1,0 +1,8 @@
+# FastPilot runner runtime deps (container image only). Kept to what the runner server and the
+# sandboxed programs need: FastAPI + pydantic for both, uvicorn to serve the runner, and httpx
+# because the programs self-check with fastapi.testclient.TestClient, which is built on httpx.
+# Lower bounds match app/requirements.txt (httpx matches the pyproject dev pin).
+fastapi>=0.115.0
+uvicorn>=0.30.0
+pydantic>=2.11.7
+httpx>=0.27

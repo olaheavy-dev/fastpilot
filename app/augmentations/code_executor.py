@@ -1,6 +1,9 @@
 """Sandboxed code executor (D6) — the one net-new piece with no class equivalent.
 
-Runs agent-generated / user FastAPI code with layered defenses:
+Runs agent-generated / user FastAPI code. The security boundary is the **runner sidecar**
+(``runner/``): a separate container with no keys, no network, a read-only filesystem and dropped
+capabilities, reached over a Unix socket (``EXECUTOR_MODE=runner``, see ``runner_client.py``). This
+module is the code the runner runs for each request. It layers these defenses:
   1. AST pre-scan           — an import *allowlist* (fastapi, pydantic and a safe slice of the
                               stdlib; everything else is rejected), plus a denylist of reflection
                               routes: dunder names/attributes, the eval/open/getattr builtins
@@ -10,10 +13,11 @@ Runs agent-generated / user FastAPI code with layered defenses:
                               and pydantic evaluate string annotations / ``ImportString``).
   2. Subprocess isolation   — a separate ``python -I`` process in a fresh temp dir, scrubbed env
                               (no API keys), own process group.
-  3. Privilege drop         — ONLY when the server runs as root (the Docker image does): the
-                              child runs as ``nobody`` (via Popen ``user=``/``group=``), so it
-                              cannot read the server's ``/proc/<pid>/environ``. As non-root
-                              (local dev) there is no drop and a warning is logged.
+  3. Privilege drop         — ONLY when the process runs as root (the runner and the backend
+                              image both do): the child runs as an unprivileged uid
+                              (``sandbox_uid``; ``nobody`` by default, one uid per slot in the
+                              runner) via Popen ``user=``/``group=``. As non-root (local dev)
+                              there is no drop and a warning is logged.
   4. Resource limits        — RLIMIT_CPU / RLIMIT_AS / RLIMIT_FSIZE via preexec_fn.
   5. Wall-clock timeout     — killpg the whole group on overrun.
   6. Network guard          — a prelude patches ``socket`` methods to raise. A convenience against
@@ -22,9 +26,10 @@ Runs agent-generated / user FastAPI code with layered defenses:
 The static scan is a FILTER, NOT A SECURITY BOUNDARY. Known, confirmed bypass: a string built at
 run time and used as a type annotation is evaluated by FastAPI/pydantic as code, and no static scan
 can see it (``test_runtime_built_annotation_is_not_caught_by_scan`` pins this). Escaped code can run
-a shell, read world-readable files and use the network. The boundary is OS isolation: the planned
-runner sidecar (no secrets, internal-only network, read-only filesystem). Until it ships, keep
-``AGENT_ENABLED`` and ``PLAYGROUND_ENABLED`` off on any public host.
+a shell and read files. In ``local`` mode that code runs inside the backend container, so keep
+``AGENT_ENABLED`` and ``PLAYGROUND_ENABLED`` off there (the startup gate enforces this unless
+``ALLOW_LOCAL_EXECUTOR`` is set). In ``runner`` mode escaped code is contained by the runner: it
+has no keys and no network, but it can still use the runner's CPU and memory, within its limits.
 
 The generated code self-verifies in-process with ``fastapi.testclient.TestClient`` (D7),
 so "running" never binds a port and stdout is a clean request/response log.
@@ -43,6 +48,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -262,6 +268,24 @@ def _limits(cpu_s: int, mem_bytes: int, fsize_bytes: int, nproc: int | None):  #
     return _apply
 
 
+def _cleanup_as(path: str, uid: int, gid: int) -> None:
+    """Delete ``path`` as ``uid``/``gid``. In the runner container root has no DAC_OVERRIDE/FOWNER,
+    so it cannot list or delete a 0700 folder owned by the slot uid; the owner must do it.
+    Errors are logged, never raised."""
+    try:
+        subprocess.run(
+            [sys.executable, "-I", "-c", "import shutil,sys; shutil.rmtree(sys.argv[1], ignore_errors=True)", path],
+            user=uid,
+            group=gid,
+            extra_groups=[],
+            timeout=5,
+            check=False,
+            capture_output=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("Sandbox clean-up as uid %s failed: %s", uid, exc)
+
+
 class SubprocessExecutor:
     """Default executor (D6). Construct with small limits in tests for speed."""
 
@@ -274,6 +298,8 @@ class SubprocessExecutor:
         max_output_chars: int = 20_000,
         max_file_bytes: int = 5_000_000,
         max_procs: int = 64,
+        sandbox_uid: int = SANDBOX_UID,
+        sandbox_gid: int = SANDBOX_GID,
     ):
         self.wall_timeout_s = wall_timeout_s
         self.cpu_seconds = cpu_seconds
@@ -281,6 +307,8 @@ class SubprocessExecutor:
         self.max_output = max_output_chars
         self.max_file_bytes = max_file_bytes
         self.max_procs = max_procs
+        self.sandbox_uid = sandbox_uid
+        self.sandbox_gid = sandbox_gid
 
     def _spawn(self, tmp: str, drop: bool) -> subprocess.Popen:
         return subprocess.Popen(
@@ -293,8 +321,8 @@ class SubprocessExecutor:
             start_new_session=True,  # own process group so a timeout can killpg the whole tree
             # Run as `nobody` when we can (server is root): the server's /proc/<pid>/environ is
             # then unreadable. Done by Popen in C, which is safe in a threaded server.
-            user=SANDBOX_UID if drop else None,
-            group=SANDBOX_GID if drop else None,
+            user=self.sandbox_uid if drop else None,
+            group=self.sandbox_gid if drop else None,
             extra_groups=[] if drop else None,
             preexec_fn=_limits(
                 self.cpu_seconds, self.mem_bytes, self.max_file_bytes, self.max_procs if drop else None
@@ -307,15 +335,20 @@ class SubprocessExecutor:
             logger.info("Sandbox blocked code: %s", reason)
             return ExecutionResult(-1, "", reason or "blocked", 0, blocked=True, block_reason=reason)
 
-        with tempfile.TemporaryDirectory(prefix="fastpilot_sbx_") as tmp:
+        with tempfile.TemporaryDirectory(prefix="fastpilot_sbx_", ignore_cleanup_errors=True) as tmp:
             script = Path(tmp) / "main.py"
             script.write_text(_NET_PRELUDE + "\n" + code, encoding="utf-8")
             drop = _should_drop_privileges()
             if not drop and not _warned_no_drop:
                 _warn_no_drop()
             if drop:  # the unprivileged child must own its cwd + script to read/write them
-                for path in (tmp, script):
-                    os.chown(path, SANDBOX_UID, SANDBOX_GID)
+                # In the runner container root has no DAC_OVERRIDE, so ownership alone decides what
+                # root can reach. Hand the script over first (root can't reach into the folder once
+                # the slot uid owns it). The folder keeps root's group with search-only access (0710):
+                # Popen changes into it as root, before switching uid. Other slot uids get nothing.
+                os.chown(script, self.sandbox_uid, self.sandbox_gid)
+                os.chmod(tmp, 0o710)
+                os.chown(tmp, self.sandbox_uid, os.getegid())
             start = time.monotonic()
             try:
                 proc = self._spawn(tmp, drop)
@@ -347,6 +380,8 @@ class SubprocessExecutor:
                     proc.wait(timeout=2)
                     stdout, stderr = "", "[sandbox] output pipes held open after kill; output discarded"
             duration_ms = int((time.monotonic() - start) * 1000)
+            if drop:  # root cannot always delete the slot uid's files, so the slot uid does it
+                _cleanup_as(tmp, self.sandbox_uid, self.sandbox_gid)
 
             return ExecutionResult(
                 exit_code=-9 if timed_out else (proc.returncode or 0),
@@ -359,19 +394,26 @@ class SubprocessExecutor:
             )
 
 
-_executor: SubprocessExecutor | None = None
+_executor: Any = None
 
 
-def get_executor() -> SubprocessExecutor:
-    """Singleton executor built from settings (wall/cpu/mem from config)."""
+def get_executor() -> Any:
+    """Singleton executor from settings: the runner sidecar client, or the local subprocess one."""
     global _executor
     if _executor is None:
         from app.config import get_settings
 
         s = get_settings()
-        _executor = SubprocessExecutor(
-            wall_timeout_s=s.executor_wall_timeout_s,
-            cpu_seconds=s.executor_cpu_seconds,
-            mem_mb=s.executor_mem_mb,
-        )
+        if s.executor_mode == "runner":
+            from app.augmentations.runner_client import RunnerClient
+
+            _executor = RunnerClient(
+                s.runner_socket, s.executor_wall_timeout_s + 15, max_in_flight=s.runner_max_in_flight
+            )
+        else:
+            _executor = SubprocessExecutor(
+                wall_timeout_s=s.executor_wall_timeout_s,
+                cpu_seconds=s.executor_cpu_seconds,
+                mem_mb=s.executor_mem_mb,
+            )
     return _executor

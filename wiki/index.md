@@ -30,5 +30,5 @@ current when you add or rename one (see [[CLAUDE.md]] rule 3).
 - `docs/` — original design-decision essays: `scoping`, `chunking-strategy`,
   `retrieval-strategy`, `production-decisions`, `augmentation-decisions`, `evaluation-strategy`,
   `iteration-log`.
-- `DEPLOY.md` — Railway deploy + demo-recording guide.
+- `DEPLOY.md` — three-service deploy notes (backend, frontend, runner), historical Railway steps and the demo-recording guide.
 - `evaluations/` — eval results (evidence) + dogfood log.

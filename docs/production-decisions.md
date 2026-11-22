@@ -74,6 +74,20 @@ annotation, which FastAPI evaluates as code), and that the drop protects the key
 server is root. **Conclusion: the scan is a filter, not a boundary.** The boundary will be a runner
 sidecar container; until then `AGENT_ENABLED` and `PLAYGROUND_ENABLED` stay off on public hosts.
 Regression tests for each finding are in `tests/test_executor.py`.
+**Update 2026-11-22 (runner sidecar built):** the boundary now exists. Code runs in a separate `runner`
+container (no network, no keys, read-only filesystem, `cap_drop: ALL` plus four needed capabilities,
+`no-new-privileges`, 768 MB memory, 128 processes). The backend reaches it over a Unix socket and fails
+closed when it is down. Each of two slots has its own uid (61001, 61002), so one visitor cannot read
+another's files or process memory; after every run leftover processes are killed and the slot's files are
+deleted, and a failed clean-up holds the slot back and restarts the runner. A startup gate turns Agent
+and Playground off if code would run inside the backend and that is not explicitly allowed
+(`ALLOW_LOCAL_EXECUTOR`). Proof tests (`tests/test_runner_integration.py`, `-m integration`, need
+Docker) check no network, no keys, a read-only filesystem and the slot isolation. **What it does not
+guarantee:** escaped code can still use the runner's CPU and memory, within its limits, and the scan in
+front of it is still only a filter. The built design is in
+`docs/superpowers/specs/2026-11-22-runner-sidecar-design.md`. Agent and Playground should not go public
+until the VPS move (after infra PR #85) is done and issue #12 (the rate limit is keyed on a session id
+the client chooses) is fixed. The demo is not live.
 
 ### Playground (D11) — **added, with a threat model**
 **Why:** turns the agent's sandbox into a user-facing "now *you* tweak it" surface — the strongest demo
@@ -168,7 +182,8 @@ traffic, which is exactly the signal a production guardrail should surface.
 
 > **Update 2026-11-22:** the Railway deployment below is offline, and the free Qdrant Cloud and Redis
 > Cloud databases lapsed. The project is moving to a self-hosted VPS (see *Decisions, 2026-11-22* at
-> the end of this file). This section describes the original Railway setup.
+> the end of this file). This section describes the original Railway setup. The stack now has a third
+> service, the `runner` (see the D6 update above); it is not part of the Railway setup below.
 
 **Railway, two services in one project**:
 - **`frontend`** (Streamlit) — the **only** service with a public domain.
@@ -187,7 +202,7 @@ stateful runs in a Railway container.
 `API_BASE_URL=http://backend.railway.internal:<PORT>`. `.env` and `.streamlit/secrets.toml` are git- and
 gitingest-ignored.
 
-**Local dev & CI parity:** `docker compose up backend frontend` mirrors the two-service topology
+**Local dev & CI parity:** `docker compose up backend frontend` mirrors the service topology (now three services: backend, frontend, runner)
 against the same managed Redis/Qdrant; a profiled `redis-stack` container (port 6380) is a
 RediSearch stand-in for `pytest -m integration` only — it is never used by the running app.
 
@@ -218,3 +233,10 @@ Recorded from the founder's answers in the project review session.
 | Staging during the fix | "Stop the whole stack" | The staging stack ran the old sandbox as root with live keys; both containers were stopped on 2026-11-22 (`docker compose start` brings them back). |
 | Rotate API keys | "Don't rotate" | No evidence of a leak; the founder chose to keep the current Gemini, Voyage and Opik keys. |
 | How to split the code work | "Two PRs: hardening now, runner next (Recommended)" | This PR hardens the executor and adds `AGENT_ENABLED`; the runner sidecar follows. |
+| Runner memory budget | "256 MB per run, 2 at once, 768 MB cap (Recommended)" | Leaves about 2 GB for Qdrant, Redis, the backend and other apps on the 4 GB VPS. During the build the review showed the limit is per process, so each run is also capped at 48 processes. |
+| Privacy between visitors | "Kill leftovers after every run (Recommended)" | Each slot has its own user; after every run its processes are killed and its files deleted. |
+| Runner link | "Unix socket, runner has no network (Recommended)" | The runner has no network at all; the backend reaches it through a socket file. |
+| Design approval | "Approve + visual page (Recommended)" | Runner design approved; a private visual page shows the before/after. |
+| Build mode | "Subagent-driven (Recommended)" | A fresh builder and a fresh reviewer per task, then a whole-branch review. |
+| When Codex reviews the runner work | "After the final review (Recommended)" | Codex reviews the PR once, after the whole-branch review's fixes. |
+| Showcase plan | "Both, in stages"; video tool "Remotion"; website "Add GSAP scroll story" | Case-study page on the personal website first, demo and explainer video after the VPS move. Tracked in #20 and personal-website#161. Remotion and GSAP are new packages, so those PRs are founder-merge. |

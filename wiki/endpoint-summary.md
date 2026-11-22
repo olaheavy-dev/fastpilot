@@ -19,7 +19,7 @@ instances). Base URL defaults to `http://localhost:8000`; the frontend reaches i
 | `POST` | `/fix` | Playground | LLM-fix broken code from its traceback → `FixResponse`. |
 | `POST` | `/feedback` | Feedback | Store 👍/👎 + comment; logs an Opik feedback score. |
 | `GET` | `/conversation/{session_id}` | Conversation | Fetch a session's message history. |
-| `GET` | `/health` | Monitoring | Component health (`healthy` / `degraded`). |
+| `GET` | `/health` | Monitoring | Component health (`healthy` / `degraded`), plus `executor` (`runner` / `local`). |
 | `GET` | `/metrics` | Monitoring | Request count, avg latency, cost, cache stats. |
 | `GET` | `/` | General | Service banner + endpoint list. |
 
@@ -115,6 +115,15 @@ to re-derive success from `exit_code`). On error it always closes with a termina
   traceback and returns extracted code.
 
 ## Monitoring
-- `/health` → `{status, components{rag_pipeline, semantic_cache, conversation}}`.
+- `/health` → `{status, components{rag_pipeline, semantic_cache, conversation[, code_runner]}, executor}`. `code_runner` appears only when `EXECUTOR_MODE=runner`.
 - `/metrics` → counters tracked on `app.state` (requests, latency sum, cost sum) + live
   cache stats. Validated to reconcile under concurrent load (see [[feature-coverage]]).
+
+## Runner sidecar routes (internal)
+Served by `runner/server.py` on a Unix socket (`/run/fastpilot/runner.sock`), never on a network.
+Only the backend's `RunnerClient` calls them.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/run` | Run `{"code": str}` in a free slot → the `ExecutionResult` fields as JSON. |
+| `GET` | `/health` | `{"status": "ok", "runs": n, "slots_free": n}`; used by the container healthcheck and the backend's `/health`. |

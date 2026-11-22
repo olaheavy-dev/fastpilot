@@ -68,6 +68,7 @@ class ConversationResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str  # "healthy" | "degraded"
     components: dict[str, str] = Field(default_factory=dict)
+    executor: Optional[str] = None  # "runner" | "local"
 
 
 class MetricsResponse(BaseModel):

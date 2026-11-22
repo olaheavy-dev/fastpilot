@@ -26,7 +26,10 @@
 - **Conversation memory** — sliding window + conditional follow-up rewrite.
 - **Security** — prompt-injection InputGuard + PII OutputValidator.
 - **Sandboxed executor** — subprocess with an AST import allowlist (a filter, not a boundary),
-  scrubbed env, privilege drop to `nobody` when root, CPU/memory/process limits and a bounded timeout.
+  scrubbed env, privilege drop when root, CPU/memory/process limits and a bounded timeout.
+- **Runner sidecar** — the boundary: a separate container (no network, no keys, read-only FS,
+  dropped capabilities, two uid slots) that runs the code; the backend fails closed if it is down.
+  ([[component-architecture]])
 - **Kill switches** — `AGENT_ENABLED` and `PLAYGROUND_ENABLED` (backend 404 + frontend hides the mode).
 - **Rate limiting** — per-session Playground limiter (3/min).
 - **Graceful degradation** — every service degrades; `/health` reports truth.
@@ -34,7 +37,7 @@
 
 ### Engineering
 - **210 tests**, hermetic by default; **90% coverage gate** in CI; ruff-clean. ([[testing-strategy]])
-- **Dockerized** two-service topology; Railway deploy config (`DEPLOY.md`).
+- **Dockerized** three-service topology (backend, frontend, runner); Railway deploy config kept as history (`DEPLOY.md`).
 - **Eval harness + evidence** in `evaluations/` and `scripts/05`–`12`.
 - **Dogfood logging** + harvested log (`evaluations/dogfood_log.md`).
 
@@ -61,15 +64,16 @@ Tracked here (and as plans in [[plans/README]] when picked up):
 |---|---|
 | **Live deploy + public URL** | Railway deploy went offline (Nov 2026); relaunch on the founder's VPS with self-hosted Qdrant + Redis is the next step. |
 | **Demo video / hero GIF** | Recorded against the deployed URL; placeholders marked in `README.md`. |
-| **Runner sidecar** (separate container: no keys, internal-only network, read-only FS) | The security boundary for code execution. Founder's choice 2026-11-22 over per-run containers, which would need the Docker socket (not allowed for apps on the VPS). |
+| **Agent and Playground public** | Needs the VPS move (after infra PR #85) and a fix for issue #12 (the rate limit is keyed on a session id the client chooses). The runner sidecar itself is built; it is not yet running on a public host. |
 | **Playground keystroke autocomplete** | Streamlit rerun + iframe latency; UX nicety. |
 | **Broader multi-user dogfooding** | Current evidence is single-user (the builder); logging path is proven. |
 
 ## Honest limitations (named, not hidden)
 - **The sandbox scan is not a security boundary** — confirmed escapes reach a shell, files and the
-  network; one (run-time strings evaluated as annotations) cannot be closed by any static scan. The
-  child runs as `nobody` only when the server is root. Agent and Playground stay off on public hosts
-  until the runner sidecar ships. ([[component-architecture]])
+  network; one (run-time strings evaluated as annotations) cannot be closed by any static scan.
+  The boundary is the runner sidecar. Escaped code can still use the runner's CPU and memory, within
+  its limits. Agent and Playground should not go public until the VPS move and issue #12 are done.
+  ([[component-architecture]])
 - **Cache is conservative by design** — threshold 0.16 favours zero wrong-answer serving over
   hit-rate; the paraphrase/near-miss embedding bands overlap.
 - **Agent self-verification only tests what it thought to test** — a human probe found a

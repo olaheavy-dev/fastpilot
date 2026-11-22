@@ -67,6 +67,9 @@ self-verification could never catch. That is exactly why the human step exists.
 - **Update 2026-11-22:** the denylist scan described below was replaced by an import allowlist and a
   privilege drop after a review found shell escapes it missed; see the D6 update in
   [`production-decisions.md`](production-decisions.md).
+- **Update 2026-11-22:** the runner sidecar (a separate container with no keys and no network) now
+  provides the OS-level boundary described below, without the Docker socket; see the D6 update in
+  [`production-decisions.md`](production-decisions.md).
 - **Sandbox is single-box, defense-in-depth — not a hard boundary.** The AST scan blocks the
   textbook reflection escape (`().__class__.__bases__[0].__subclasses__()`), the reflection builtins
   (`getattr`/`globals`/`vars`/…) it would lean on, and direct `open` filesystem access — so the

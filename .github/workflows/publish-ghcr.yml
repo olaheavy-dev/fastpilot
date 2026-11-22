@@ -20,10 +20,18 @@ jobs:
         include:
           - service: backend
             context: app
+            file: app/Dockerfile
             image: ghcr.io/sunkanmi-olawuwo/fastpilot-backend
           - service: frontend
             context: frontend
+            file: frontend/Dockerfile
             image: ghcr.io/sunkanmi-olawuwo/fastpilot-frontend
+          # Context is the repo root: the image copies app/augmentations/code_executor.py.
+          # runner/Dockerfile.dockerignore keeps the context to the files it copies.
+          - service: runner
+            context: .
+            file: runner/Dockerfile
+            image: ghcr.io/sunkanmi-olawuwo/fastpilot-runner
 
     steps:
       - uses: actions/checkout@v5
@@ -51,6 +59,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

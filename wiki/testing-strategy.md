@@ -10,7 +10,8 @@
 - **~210 test functions** across `tests/` (`test_api`, `test_pipeline`, `test_services`,
   `test_agent`, `test_agent_endpoints`, `test_executor`, `test_security`, `test_components`,
   `test_observability`, `test_registry`, `test_sse_parser`, `test_frontend`, `test_units`,
-  `test_integration`, `test_visual`, `test_smoke`).
+  `test_integration`, `test_visual`, `test_smoke`, plus `test_runner`, `test_runner_client` and
+  `test_runner_integration` for the runner sidecar).
 
 ## Test tiers (markers)
 The **default run is hermetic and instant** — no network, no keys, < 10 s. Heavier tiers are
@@ -19,7 +20,7 @@ opt-in via markers (`addopts = -m 'not integration and not live and not visual'`
 | Marker | Needs | Run with |
 |---|---|---|
 | _(default)_ | nothing | `uv run pytest` |
-| `integration` | local redis-stack container | `docker compose --profile test up -d redis-test` then `-m integration` |
+| `integration` | local redis-stack container; `test_runner_integration.py` needs Docker (builds and runs the runner image: no network, no keys, read-only FS, slot isolation, leftovers killed, stopped runner gives `unavailable`) | `docker compose --profile test up -d redis-test` then `-m integration` |
 | `live` | real Qdrant/Voyage/Gemini/Opik keys | `-m live` |
 | `visual` | Playwright + chromium | `playwright install chromium` then `-m visual` |
 | `slow` | nothing (just long, e.g. executor timeouts) | included by default |
@@ -54,7 +55,7 @@ real `ConversationService` on **`fakeredis`** — plus a `build_client(...)` hel
   never 5xx.
 
 ## Coverage expectations
-- **90% line coverage gate** on `app/`, enforced in CI (`--cov=app --cov-fail-under=90`).
+- **90% line coverage gate** on `app/` and `runner/`, enforced in CI (`--cov=app --cov=runner --cov-fail-under=90`).
   Branch coverage is on (`tool.coverage.run`).
 - The deliberately-uncovered remainder is live-only code (real Redis/Qdrant/Opik build paths,
   the executor's forked-child `preexec_fn`), reached under `integration`/`live`.

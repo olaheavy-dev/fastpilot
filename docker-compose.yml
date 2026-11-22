@@ -1,12 +1,61 @@
 # FastPilot — local dev orchestration.
 #
 #   docker compose up backend frontend        # run the app (talks to Redis Cloud via ../.env)
+#                                             # (the backend starts the runner sidecar too)
 #   docker compose --profile test up redis-test   # local RediSearch container for `pytest -m integration`
 #
 # The running app uses Redis Cloud (managed) per D4 — the redis-test container is
 # ONLY the integration-test/CI stand-in and is never used by backend/frontend.
+#
+# The `runner` service runs untrusted code for /execute and the Agent. It has no network, no keys
+# and a read-only filesystem; the backend reaches it over a Unix socket on the `runner_sock` volume.
+
+# Shared values, set once so two services can't disagree.
+# Sandbox limits: the runner enforces them; the backend reads them for its client timeout.
+x-executor-limits: &executor-limits
+  EXECUTOR_WALL_TIMEOUT_S: "15"
+  EXECUTOR_CPU_SECONDS: "10"
+  EXECUTOR_MEM_MB: "256"
+# Feature switches (AGENT_ENABLED / PLAYGROUND_ENABLED) are deliberately NOT set here: backend and
+# frontend both read them from the same env_file, and an `environment:` entry would override a kill
+# switch set there (Compose gives `environment` precedence over `env_file`).
 
 services:
+  runner:
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    network_mode: none
+    read_only: true
+    init: true  # a tiny init as PID 1 reaps orphaned processes left by sandboxed code
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /dev/shm:size=8m,mode=1777  # Docker mounts a writable /dev/shm even with read_only; keep it tiny
+    volumes:
+      - runner_sock:/run/fastpilot
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, KILL]  # switch to slot uids, chown run folders, kill leftovers
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    pids_limit: 128
+    # Limits only. Never `env_file`, never a key: escaped code must find nothing worth stealing.
+    environment:
+      <<: *executor-limits
+      RUNNER_SLOTS: "2"
+      RUNNER_QUEUE_WAIT_S: "8"  # a request waits this long for a free slot, then gets "[runner] busy"
+    restart: always
+    healthcheck:  # asks the runner's /health over its socket (no network here); stdlib only
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket,sys; s=socket.socket(socket.AF_UNIX); s.settimeout(3); s.connect('/run/fastpilot/runner.sock'); s.sendall(b'GET /health HTTP/1.0\\r\\n\\r\\n'); sys.exit(0 if b' 200 ' in s.recv(64) else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 2s
+
   backend:
     build:
       context: ./app
@@ -20,7 +69,14 @@ services:
       - path: ../.env
         required: false
     environment:
-      - DEBUG=true
+      <<: *executor-limits
+      DEBUG: "true"
+      EXECUTOR_MODE: runner
+      ALLOW_LOCAL_EXECUTOR: "false"  # never run visitor code inside the backend
+    volumes:
+      - runner_sock:/run/fastpilot
+    depends_on:
+      - runner
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
       interval: 30s
@@ -38,7 +94,7 @@ services:
       - path: ../.env
         required: false
     environment:
-      - API_BASE_URL=http://backend:8000
+      API_BASE_URL: http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
@@ -55,3 +111,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  runner_sock:  # holds only the runner's Unix socket

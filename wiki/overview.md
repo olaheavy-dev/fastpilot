@@ -37,7 +37,7 @@ the [scoping essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs
 | Generation | **Google Gemini** | `gemini-2.5-flash` (+ `-flash-lite` fallback). |
 | Memory + cache | **Redis Cloud** | Conversation sliding window + HNSW semantic cache (RediSearch). |
 | Observability | **Opik / Comet** | Tracing, prompt versioning, feedback scores, online-eval rule. |
-| Packaging / deploy | **uv · Docker · Railway** | Two-service topology; see `DEPLOY.md`. |
+| Packaging / deploy | **uv · Docker** | Three services (backend, frontend, runner); the original Railway deploy is offline. See `DEPLOY.md`. |
 
 ## System architecture
 
@@ -51,8 +51,10 @@ flowchart LR
       BE --> SC[Semantic cache]
       BE --> CV[Conversation memory<br/>+ query rewrite]
       BE --> QR[Query router<br/>classify + prompt]
-      BE --> AG[Agent orchestrator<br/>+ sandboxed executor]
+      BE --> AG[Agent orchestrator<br/>+ RunnerClient]
     end
+
+    AG -- Unix socket --> RN[Runner sidecar<br/>no network · no keys<br/>read-only FS]
 
     RP --> QD[(Qdrant Cloud<br/>hybrid retrieval)]
     RP --> VO[Voyage<br/>embed + rerank-2.5]
@@ -63,7 +65,7 @@ flowchart LR
 ```
 
 State is **external** (Qdrant + Redis are managed cloud services); nothing stateful runs in
-a Railway container, so both services scale and restart cleanly. Each backend service
+a container, so the services scale and restart cleanly (the runner holds no state either). Each backend service
 **degrades internally** — missing credentials or a downed Redis don't crash startup;
 `/health` reports the truth instead (see [[component-architecture]] → *Resilience*).
 

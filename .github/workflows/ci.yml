@@ -4,7 +4,7 @@ name: CI
 # unit suite actually imports at module load (haystack core, qdrant-client,
 # voyageai, redis, numpy) — fastembed/google/opik are lazy-imported and never hit
 # without keys. Integration (redis-stack) and live (real keys) tests are excluded
-# by default; the 90% coverage gate is a regression guard over app/.
+# by default; the 90% coverage gate is a regression guard over app/ and runner/.
 on:
   push:
     branches: [main]
@@ -31,12 +31,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install \
-            fastapi pydantic-settings python-dotenv \
+            fastapi uvicorn pydantic-settings python-dotenv \
             haystack-ai qdrant-client voyageai redis \
             streamlit requests \
             pytest pytest-asyncio pytest-cov httpx asgi-lifespan fakeredis
       - name: Unit tests (hermetic — integration/live/visual excluded by default)
-        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=90
+        run: pytest --cov=app --cov=runner --cov-report=term-missing --cov-fail-under=90
 
   # Mirror the in-repo wiki/ to the GitHub Wiki after tests pass. Push-to-main only
   # (PRs — incl. forks — can't get a write token), and only if tests are green.

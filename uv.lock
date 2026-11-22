@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'win32'",
@@ -584,6 +584,7 @@ dependencies = [
     { name = "google-genai" },
     { name = "google-genai-haystack" },
     { name = "haystack-ai" },
+    { name = "httpx" },
     { name = "opik" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -603,7 +604,6 @@ dependencies = [
 dev = [
     { name = "asgi-lifespan" },
     { name = "fakeredis" },
-    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -622,7 +622,7 @@ requires-dist = [
     { name = "google-genai", specifier = ">=1.31.0" },
     { name = "google-genai-haystack", specifier = ">=2.1.1" },
     { name = "haystack-ai", specifier = ">=2.16.1" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "opik", specifier = ">=0.1.0" },
     { name = "playwright", marker = "extra == 'visual'", specifier = ">=1.47" },
     { name = "pydantic", specifier = ">=2.11.7" },

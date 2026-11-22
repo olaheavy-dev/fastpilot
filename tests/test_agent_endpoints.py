@@ -217,3 +217,30 @@ async def test_execute_unavailable_sandbox_is_a_guard_not_500():
         r = await client.post("/execute", json={"code": "print(1)", "session_id": "s"})
     assert r.status_code == 200
     assert r.json()["guard"] == "unavailable"
+
+
+# --- runner sidecar -------------------------------------------------------
+async def test_execute_with_runner_down_is_unavailable_guard():
+    from app.augmentations.runner_client import RunnerClient
+
+    async with build(executor=RunnerClient("/nonexistent.sock", 1)) as client:
+        r = await client.post("/execute", json={"code": "print(1)", "session_id": "s"})
+    assert r.status_code == 200
+    assert r.json()["guard"] == "unavailable"
+
+
+async def test_health_reports_executor_mode():
+    async with build() as client:
+        r = await client.get("/health")
+    assert r.json()["executor"] == "local"
+
+
+async def test_health_degrades_when_runner_down(monkeypatch):
+    import app.config as cfg
+    from app.augmentations.runner_client import RunnerClient
+
+    async with build(executor=RunnerClient("/nonexistent.sock", 1)) as client:
+        monkeypatch.setattr(cfg.get_settings(), "executor_mode", "runner")
+        body = (await client.get("/health")).json()
+    assert body["executor"] == "runner"
+    assert body["components"]["code_runner"] == "degraded" and body["status"] == "degraded"
