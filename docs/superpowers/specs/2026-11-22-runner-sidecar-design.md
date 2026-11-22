@@ -246,3 +246,25 @@ runner:
 - Exact file layout inside `runner/`, logging format, and how the restart counter is implemented.
 - Whether the semaphore wait has its own timeout or relies on the client timeout. Resolved in the final review: its own timeout, `RUNNER_QUEUE_WAIT_S` (8 s).
 - Dockerfile details (base image `python:3.12-slim` to match the backend).
+
+## Rulings made during the build (22 Nov 2026)
+
+Calls the build controller made on the founder's behalf, each with what it costs if wrong. The founder
+can reverse any of them.
+
+| Ruling | Decision | Cost if wrong |
+|---|---|---|
+| A | Tests that bind real Unix sockets use a short folder under `/tmp`, because macOS limits socket paths to about 104 bytes. | Flaky path errors on macOS only. |
+| B | The runner app exposes `ready_to_exit()`; `main()` polls it and stops uvicorn. | A small refactor. |
+| C | In runner mode `/health` adds `components.code_runner`, and the response gains `executor`. | `/health` shows degraded while only the runner is down (intended). |
+| D | After every run: kill the slot's processes first, then delete every file that slot's user owns, as that user. | One extra short process per run (about 30 ms). |
+| E | Once the restart rule fires, new runs answer "restarting" instead of queueing. | Visitors see "sandbox unavailable" for a few seconds during a restart. |
+| F | A failed kill holds the slot back and restarts the runner (fail closed). | One unnecessary restart. |
+| G | The clean-up covers `/dev/shm` as well as `/tmp`. | One more folder scan per run. |
+| H | The runner container runs with `init: true` so orphaned processes are reaped. | None. |
+| I | A clean-up that fails or times out counts as a failed kill (hold back, restart). | An extra restart. |
+| J | `httpx` is declared as a direct dependency of the backend. | None. |
+| K | The backend's client timeout is the wall timeout plus 15 s (the plan said plus 10). | A visitor waits 5 s longer when the runner hangs. |
+| L | Each run may start at most 48 processes, which leaves headroom under the container's 128. | Code that needs more than 48 processes or threads fails (FastAPI examples use fewer than 10). |
+| After review | A request waits at most 8 s for a slot, and the backend allows at most 3 runner calls at once (whole-branch review). | Busy periods show "sandbox busy" sooner. |
+| After Codex | Compose no longer sets the Agent and Playground switches in `environment`, so a switch set in `.env` is never overridden (Codex review on PR #19). | None. |

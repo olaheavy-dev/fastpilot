@@ -233,3 +233,10 @@ Recorded from the founder's answers in the project review session.
 | Staging during the fix | "Stop the whole stack" | The staging stack ran the old sandbox as root with live keys; both containers were stopped on 2026-11-22 (`docker compose start` brings them back). |
 | Rotate API keys | "Don't rotate" | No evidence of a leak; the founder chose to keep the current Gemini, Voyage and Opik keys. |
 | How to split the code work | "Two PRs: hardening now, runner next (Recommended)" | This PR hardens the executor and adds `AGENT_ENABLED`; the runner sidecar follows. |
+| Runner memory budget | "256 MB per run, 2 at once, 768 MB cap (Recommended)" | Leaves about 2 GB for Qdrant, Redis, the backend and other apps on the 4 GB VPS. During the build the review showed the limit is per process, so each run is also capped at 48 processes. |
+| Privacy between visitors | "Kill leftovers after every run (Recommended)" | Each slot has its own user; after every run its processes are killed and its files deleted. |
+| Runner link | "Unix socket, runner has no network (Recommended)" | The runner has no network at all; the backend reaches it through a socket file. |
+| Design approval | "Approve + visual page (Recommended)" | Runner design approved; a private visual page shows the before/after. |
+| Build mode | "Subagent-driven (Recommended)" | A fresh builder and a fresh reviewer per task, then a whole-branch review. |
+| When Codex reviews the runner work | "After the final review (Recommended)" | Codex reviews the PR once, after the whole-branch review's fixes. |
+| Showcase plan | "Both, in stages"; video tool "Remotion"; website "Add GSAP scroll story" | Case-study page on the personal website first, demo and explainer video after the VPS move. Tracked in #20 and personal-website#161. Remotion and GSAP are new packages, so those PRs are founder-merge. |
