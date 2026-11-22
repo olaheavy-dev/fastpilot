@@ -1,9 +1,11 @@
 """The runner's HTTP app, served on a Unix socket that our own code binds.
 
-``POST /run`` takes a free slot (or waits for one), runs the code there with that slot's uid, then
-always kills every process left behind by that uid and gives the slot back. After ``max_runs`` runs or
-``max_age_s`` seconds, the runner finishes its current runs and exits with code 0, so Docker's
-``restart: always`` starts a clean container.
+``POST /run`` takes a free slot (or waits for one) and runs the code there with that slot's uid. Then,
+always: kill every process left behind by that uid (looped), delete that uid's files in ``/tmp`` as that
+uid, and give the slot back. If the kill fails, the slot is held back and the runner restarts (fail
+closed). After ``max_runs`` runs or ``max_age_s`` seconds, new requests get a "restarting" answer, the
+runs in flight finish, and the runner exits with code 0, so Docker's ``restart: always`` starts a
+clean container.
 """
 
 from __future__ import annotations
@@ -23,7 +25,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from app.augmentations.code_executor import ExecutionResult, SubprocessExecutor
-from runner.slots import SlotPool, kill_uid_processes
+from runner.slots import SlotPool, clean_uid_tmp, kill_uid_processes
 
 logger = logging.getLogger(__name__)
 
@@ -44,19 +46,27 @@ def _result_json(result: ExecutionResult) -> dict[str, Any]:
     return {**dataclasses.asdict(result), "ok": result.ok}
 
 
+def _restarting() -> dict[str, Any]:
+    return _result_json(ExecutionResult(-1, "", "[runner] restarting", 0, unavailable=True))
+
+
 def create_app(
     executor_factory: Callable[[int], Executor],
     uids: list[int],
     max_runs: int = 200,
     max_age_s: int = 21600,
     killer: Callable[[int], Any] = kill_uid_processes,
+    cleaner: Callable[[int], Any] | None = None,
 ) -> FastAPI:
+    """Build the runner app. ``cleaner`` defaults to ``clean_uid_tmp`` (looked up at call time)."""
     app = FastAPI(title="FastPilot runner", docs_url=None, redoc_url=None, openapi_url=None)
     pool = SlotPool(uids)
     started = time.monotonic()
     app.state.uids = list(uids)
     app.state.executor_factory = executor_factory
     app.state.runs = 0
+    app.state.in_flight = 0
+    app.state.held_back: list[int] = []  # slots whose leftovers could not be killed: never reused
     app.state.should_exit = False
 
     def _check_restart() -> None:
@@ -64,29 +74,62 @@ def create_app(
             app.state.should_exit = True
 
     def ready_to_exit() -> bool:
-        """True once the restart rule has fired and no slot is busy."""
+        """True once the restart rule has fired and no run is in flight (held-back slots don't count)."""
         _check_restart()
-        return app.state.should_exit and pool.busy == 0
+        return app.state.should_exit and app.state.in_flight == 0
 
     app.state.ready_to_exit = ready_to_exit
 
+    async def _take_slot() -> int | None:
+        """A free slot uid, or ``None`` once the runner is restarting (also wakes requests that wait)."""
+        while not app.state.should_exit:
+            try:
+                return await asyncio.wait_for(pool.acquire(), timeout=0.1)
+            except TimeoutError:
+                _check_restart()
+        return None
+
+    async def _kill_and_clean(uid: int) -> bool:
+        """Kill the slot uid's leftovers, then delete its files as that uid. False if the kill failed."""
+        try:
+            await asyncio.to_thread(killer, uid)
+        except Exception:
+            logger.exception("leftover killer failed for slot %s; holding the slot back and restarting", uid)
+            return False
+        clean = cleaner if cleaner is not None else clean_uid_tmp
+        try:
+            await asyncio.to_thread(clean, uid)
+        except Exception:
+            logger.exception("clean-up failed for slot %s", uid)
+        return True
+
     @app.post("/run")
     async def run(req: RunRequest) -> dict[str, Any]:
-        uid = await pool.acquire()
+        uid = await _take_slot()
+        if uid is None:
+            return _restarting()
+        if app.state.should_exit:  # the restart rule fired while this request waited
+            pool.release(uid)
+            return _restarting()
+        app.state.in_flight += 1
+        safe = False
         try:
-            result = await asyncio.to_thread(executor_factory(uid).run, req.code)
-        except Exception:
-            logger.exception("executor failed in slot %s", uid)
-            result = ExecutionResult(-1, "", "[runner] internal error", 0, unavailable=True)
-        finally:
             try:
-                await asyncio.to_thread(killer, uid)
+                result = await asyncio.to_thread(executor_factory(uid).run, req.code)
             except Exception:
-                logger.exception("leftover killer failed for slot %s", uid)
+                logger.exception("executor failed in slot %s", uid)
+                result = ExecutionResult(-1, "", "[runner] internal error", 0, unavailable=True)
             finally:
+                safe = await _kill_and_clean(uid)
+        finally:
+            app.state.in_flight -= 1
+            app.state.runs += 1
+            if safe:
                 pool.release(uid)
-                app.state.runs += 1
-                _check_restart()
+            else:  # fail closed: this uid may still have live processes
+                app.state.held_back.append(uid)
+                app.state.should_exit = True
+            _check_restart()
         return _result_json(result)
 
     @app.get("/health")
@@ -154,7 +197,7 @@ def main() -> None:
         )
 
     app = create_app(factory, SLOT_UIDS[:slots])
-    server = uvicorn.Server(uvicorn.Config(app, log_level="info", lifespan="off"))
+    server = uvicorn.Server(uvicorn.Config(app, log_level="info", lifespan="off", timeout_graceful_shutdown=wall + 15))
     sock = bind_socket(SOCKET_PATH, gid=SOCKET_GID)
     done = threading.Event()
     watcher = threading.Thread(

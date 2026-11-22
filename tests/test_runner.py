@@ -12,6 +12,7 @@ import os
 import shutil
 import socket
 import stat
+import subprocess
 import tempfile
 import threading
 import time
@@ -23,8 +24,9 @@ from fastapi.testclient import TestClient
 
 from app.augmentations.code_executor import ExecutionResult
 from runner import server as runner_server
+from runner import slots as runner_slots
 from runner.server import bind_socket, create_app
-from runner.slots import SlotPool, kill_uid_processes
+from runner.slots import KillerError, SlotPool, clean_uid_tmp, kill_uid_processes
 
 UIDS = [61001, 61002]
 _REAL_CONNECT = socket.socket.connect  # captured at import, before the conftest guard patches it
@@ -61,6 +63,18 @@ def _factory(delay_s: float = 0.0, raises: bool = False, tracker: dict | None = 
     return lambda uid: FakeExecutor(uid, delay_s=delay_s, raises=raises, tracker=shared)
 
 
+@pytest.fixture(autouse=True)
+def cleaned(monkeypatch) -> list:
+    """Never let an app test delete real files in /tmp: record ``"clean <uid>"`` instead."""
+    calls: list = []
+
+    def fake(uid: int) -> None:
+        calls.append(f"clean {uid}")
+
+    monkeypatch.setattr(runner_server, "clean_uid_tmp", fake)
+    return calls
+
+
 def _write_status(root, pid: str, uid: int) -> None:
     d = root / pid
     d.mkdir()
@@ -68,6 +82,16 @@ def _write_status(root, pid: str, uid: int) -> None:
 
 
 # --- Leftover killer --------------------------------------------------------------------------
+
+
+def _fake_kill(root, killed: list[int]):
+    """A fake ``os.kill`` that records the pid and makes the process vanish from the fake /proc."""
+
+    def kill(pid: int, sig: int) -> None:
+        killed.append(pid)
+        shutil.rmtree(root / str(pid), ignore_errors=True)
+
+    return kill
 
 
 def test_kill_uid_processes_kills_only_matching_uid(tmp_path):
@@ -78,24 +102,138 @@ def test_kill_uid_processes_kills_only_matching_uid(tmp_path):
     _write_status(tmp_path, "self", 61001)
     (tmp_path / "13").mkdir()  # the process exited between listing and reading: no status file
     (tmp_path / "cpuinfo").write_text("not a pid")
-    killed = []
-    n = kill_uid_processes(61001, proc_root=str(tmp_path), kill=lambda pid, sig: killed.append(pid))
+    killed: list[int] = []
+    n = kill_uid_processes(61001, proc_root=str(tmp_path), kill=_fake_kill(tmp_path, killed), pause_s=0)
     assert n == 1 and killed == [10]
+
+
+def test_kill_uid_processes_skips_zombies(tmp_path):
+    # A zombie (already dead, waiting to be reaped) can't run code and can't be killed again.
+    (tmp_path / "14").mkdir()
+    (tmp_path / "14" / "status").write_text("Name:\tpython\nState:\tZ (zombie)\nUid:\t61001\t61001\t61001\t61001\n")
+    killed: list[int] = []
+    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=_fake_kill(tmp_path, killed), pause_s=0) == 0
+    assert killed == []
+
+
+def test_kill_uid_processes_repeats_until_a_clean_pass(tmp_path):
+    # Escaped code forks a new child just after the first scan: the next pass must catch it.
+    _write_status(tmp_path, "10", 61001)
+    killed: list[int] = []
+
+    def kill(pid: int, sig: int) -> None:
+        killed.append(pid)
+        shutil.rmtree(tmp_path / str(pid))
+        if pid == 10:
+            _write_status(tmp_path, "30", 61001)
+
+    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=kill, pause_s=0) == 2
+    assert killed == [10, 30]
+
+
+def test_kill_uid_processes_gives_up_after_max_passes(tmp_path):
+    # A fork loop that always stays one step ahead: after 10 passes it counts as a failure.
+    _write_status(tmp_path, "100", 61001)
+    state = {"next": 101}
+
+    def kill(pid: int, sig: int) -> None:
+        shutil.rmtree(tmp_path / str(pid))
+        _write_status(tmp_path, str(state["next"]), 61001)
+        state["next"] += 1
+
+    with pytest.raises(KillerError, match="10 passes"):
+        kill_uid_processes(61001, proc_root=str(tmp_path), kill=kill, pause_s=0)
+    assert state["next"] == 111  # exactly 10 passes
 
 
 def test_kill_uid_processes_ignores_pid_that_vanishes_before_kill(tmp_path):
     _write_status(tmp_path, "20", 61001)
     _write_status(tmp_path, "21", 61001)
+    killed: list[int] = []
+    fake = _fake_kill(tmp_path, killed)
 
     def kill(pid: int, sig: int) -> None:
         if pid == 20:
+            shutil.rmtree(tmp_path / "20")
             raise ProcessLookupError
+        fake(pid, sig)
 
-    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=kill) == 1
+    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=kill, pause_s=0) == 2
+    assert killed == [21]
 
 
-def test_kill_uid_processes_missing_proc_root_returns_zero(tmp_path):
-    assert kill_uid_processes(61001, proc_root=str(tmp_path / "nope"), kill=lambda p, s: None) == 0
+def test_kill_uid_processes_permission_error_continues_then_fails(tmp_path):
+    _write_status(tmp_path, "40", 61001)
+    _write_status(tmp_path, "41", 61001)
+    killed: list[int] = []
+    fake = _fake_kill(tmp_path, killed)
+
+    def kill(pid: int, sig: int) -> None:
+        if pid == 40:
+            raise PermissionError("no CAP_KILL")
+        fake(pid, sig)
+
+    with pytest.raises(KillerError, match="40"):
+        kill_uid_processes(61001, proc_root=str(tmp_path), kill=kill, pause_s=0)
+    assert killed == [41]  # the other pid was still killed
+
+
+def test_kill_uid_processes_missing_proc_root_fails(tmp_path):
+    # Not being able to look is not the same as "nothing left": fail closed.
+    with pytest.raises(KillerError):
+        kill_uid_processes(61001, proc_root=str(tmp_path / "nope"), kill=lambda p, s: None)
+
+
+# --- Clean-up of the slot uid's files ---------------------------------------------------------
+
+
+def test_clean_uid_tmp_removes_only_that_uids_entries(tmp_path):
+    root = tmp_path / "tmp"
+    root.mkdir()
+    outside = tmp_path / "keep.txt"
+    outside.write_text("not in tmp")
+    (root / "a.txt").write_text("left behind")
+    nested = root / "b" / "locked"
+    nested.mkdir(parents=True)
+    (nested / "f").write_text("x")
+    nested.chmod(0o500)  # the owner can still chmod it back and delete it
+    (root / "c").symlink_to(outside)
+    clean_uid_tmp(os.getuid(), os.getgid(), tmp_root=str(root))
+    assert list(root.iterdir()) == []
+    assert outside.read_text() == "not in tmp"  # the symlink went, not its target
+
+
+def test_clean_uid_tmp_leaves_other_uids_alone(tmp_path):
+    (tmp_path / "a.txt").write_text("mine, not the slot's")
+    clean_uid_tmp(os.getuid() + 1, os.getgid(), tmp_root=str(tmp_path))
+    assert (tmp_path / "a.txt").exists()
+
+
+def test_clean_uid_tmp_logs_and_never_raises(tmp_path, caplog):
+    clean_uid_tmp(os.getuid(), os.getgid(), tmp_root=str(tmp_path / "missing"))
+    assert "clean-up" in caplog.text
+
+
+def test_clean_uid_tmp_logs_when_the_child_cannot_start(tmp_path, monkeypatch, caplog):
+    def boom(*a, **k):
+        raise OSError("cannot switch user")
+
+    monkeypatch.setattr(runner_slots.subprocess, "run", boom)
+    clean_uid_tmp(os.getuid(), os.getgid(), tmp_root=str(tmp_path))
+    assert "cannot switch user" in caplog.text
+
+
+def test_clean_uid_tmp_switches_user_when_root(tmp_path, monkeypatch):
+    seen: dict = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(runner_slots.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(runner_slots.subprocess, "run", fake_run)
+    clean_uid_tmp(61001, 61001, tmp_root=str(tmp_path))
+    assert (seen["user"], seen["group"], seen["extra_groups"], seen["timeout"]) == (61001, 61001, [], 5)
 
 
 async def test_slot_pool_hands_out_and_takes_back_uids():
@@ -143,13 +281,33 @@ def test_killer_runs_after_every_run_even_on_error():
     assert client.get("/health").json()["slots_free"] == 1
 
 
-def test_slot_is_released_even_if_the_killer_fails():
-    def bad_killer(uid: int) -> int:
-        raise PermissionError("no CAP_KILL")
+def test_order_is_run_kill_clean_release(cleaned):
+    events = cleaned  # the fake cleaner records into the same list
 
-    client = TestClient(create_app(_factory(), [61001], killer=bad_killer))
-    assert client.post("/run", json={"code": "x"}).json()["ok"] is True
-    assert client.get("/health").json()["slots_free"] == 1
+    class Ex:
+        def run(self, code: str) -> ExecutionResult:
+            events.append("run")
+            return ExecutionResult(0, "", "", 1)
+
+    app = create_app(lambda uid: Ex(), [61001], killer=lambda uid: events.append(f"kill {uid}"))
+    TestClient(app).post("/run", json={"code": "x"})
+    assert events == ["run", "kill 61001", "clean 61001"]
+
+
+@pytest.mark.parametrize("error", [PermissionError("no CAP_KILL"), KillerError("still forking after 10 passes")])
+def test_killer_failure_holds_the_slot_back_and_restarts(error, cleaned):
+    def bad_killer(uid: int) -> int:
+        raise error
+
+    app = create_app(_factory(), UIDS, killer=bad_killer)
+    client = TestClient(app)
+    assert client.post("/run", json={"code": "x"}).json()["ok"] is True  # the code itself ran fine
+    assert app.state.should_exit is True
+    assert client.get("/health").json()["slots_free"] == 1  # that slot never goes back to the pool
+    assert app.state.ready_to_exit() is True  # a held-back slot doesn't block the restart
+    assert cleaned == []  # no clean-up as a uid that may still have live processes
+    body = client.post("/run", json={"code": "y"}).json()
+    assert body["unavailable"] is True and body["stderr"] == "[runner] restarting"
 
 
 async def test_third_request_waits_for_a_slot():
@@ -181,6 +339,57 @@ async def test_restart_waits_for_in_flight_runs():
         assert app.state.ready_to_exit() is False  # the slow slot is still busy
         assert (await slow).json()["ok"] is True
     assert app.state.ready_to_exit() is True
+
+
+async def test_requests_after_should_exit_get_restarting_and_restart_is_not_delayed():
+    tracker: dict = {}
+
+    def factory(uid: int) -> FakeExecutor:
+        return FakeExecutor(uid, delay_s=0.4 if uid == 61001 else 0.0, tracker=tracker)
+
+    app = create_app(factory, UIDS, max_runs=1, killer=lambda uid: 0)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://runner") as client:
+        slow = asyncio.create_task(client.post("/run", json={"code": "slow"}))
+        await asyncio.sleep(0.05)
+        assert (await client.post("/run", json={"code": "quick"})).json()["ok"] is True  # runs == max_runs now
+        # A steady stream keeps arriving: none of it takes a slot, so it can't put off the restart.
+        stream = await asyncio.gather(*(client.post("/run", json={"code": str(i)}) for i in range(5)))
+        for r in stream:
+            body = r.json()
+            assert r.status_code == 200 and body["unavailable"] is True
+            assert body["exit_code"] == -1 and body["stderr"] == "[runner] restarting"
+        assert app.state.ready_to_exit() is False
+        await slow
+    assert app.state.ready_to_exit() is True
+    assert tracker["uids"].count(61002) == 1  # the stream never ran
+
+
+async def test_request_waiting_for_a_slot_gets_restarting_once_should_exit_is_set():
+    app = create_app(_factory(delay_s=0.3), [61001], max_runs=1, killer=lambda uid: 0)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://runner") as client:
+        first, second = await asyncio.gather(
+            client.post("/run", json={"code": "a"}), client.post("/run", json={"code": "b"})
+        )
+    assert first.json()["ok"] is True
+    assert second.json()["stderr"] == "[runner] restarting"
+    assert app.state.ready_to_exit() is True
+
+
+async def test_waiter_wakes_when_every_slot_is_held_back():
+    # The only slot is held back after a failed kill: a waiting request must not hang the shutdown.
+    def bad_killer(uid: int) -> int:
+        raise KillerError("boom")
+
+    app = create_app(_factory(delay_s=0.2), [61001], killer=bad_killer)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://runner") as client:
+        first, second = await asyncio.wait_for(
+            asyncio.gather(client.post("/run", json={"code": "a"}), client.post("/run", json={"code": "b"})), 3
+        )
+    assert first.json()["ok"] is True
+    assert second.json()["stderr"] == "[runner] restarting"
 
 
 def test_restart_after_max_age():
