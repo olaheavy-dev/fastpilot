@@ -150,6 +150,10 @@ class AgentOrchestrator:
             if result.ok:
                 yield {"event": "agent_step", "data": {"name": "run", "status": "done", "detail": "exit 0"}}
                 break
+            if getattr(result, "unavailable", False):  # the sandbox is down: retrying the code can't help
+                step = {"name": "run", "status": "error", "detail": "sandbox unavailable"}
+                yield {"event": "agent_step", "data": step}
+                break
             detail = result.block_reason or (f"exit {result.exit_code}" if not result.timed_out else "timed out")
             yield {"event": "agent_step", "data": {"name": "run", "status": "error", "detail": detail}}
 

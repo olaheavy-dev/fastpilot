@@ -25,8 +25,9 @@
 - **Semantic cache** — Redis HNSW, safety-tuned threshold.
 - **Conversation memory** — sliding window + conditional follow-up rewrite.
 - **Security** — prompt-injection InputGuard + PII OutputValidator.
-- **Sandboxed executor** — 5-layer in-process defense (AST denylist → subprocess isolation →
-  rlimits → wall timeout → network guard).
+- **Sandboxed executor** — subprocess with an AST import allowlist (a filter, not a boundary),
+  scrubbed env, privilege drop to `nobody` when root, CPU/memory/process limits and a bounded timeout.
+- **Kill switches** — `AGENT_ENABLED` and `PLAYGROUND_ENABLED` (backend 404 + frontend hides the mode).
 - **Rate limiting** — per-session Playground limiter (3/min).
 - **Graceful degradation** — every service degrades; `/health` reports truth.
 - **Observability** — Opik tracing, prompt versioning/registry, feedback scores, online-eval rule.
@@ -58,16 +59,17 @@ Tracked here (and as plans in [[plans/README]] when picked up):
 
 | Item | Why deferred |
 |---|---|
-| **Live Railway deploy + public URL** | Needs the owner's Railway account/browser (`DEPLOY.md`). Highest-impact next step. |
+| **Live deploy + public URL** | Railway deploy went offline (Nov 2026); relaunch on the founder's VPS with self-hosted Qdrant + Redis is the next step. |
 | **Demo video / hero GIF** | Recorded against the deployed URL; placeholders marked in `README.md`. |
-| **Docker sandbox backend** (`--network none --memory 256m`) | The production-grade hard boundary; Railway has no docker-in-docker. |
+| **Runner sidecar** (separate container: no keys, internal-only network, read-only FS) | The security boundary for code execution. Founder's choice 2026-11-22 over per-run containers, which would need the Docker socket (not allowed for apps on the VPS). |
 | **Playground keystroke autocomplete** | Streamlit rerun + iframe latency; UX nicety. |
 | **Broader multi-user dogfooding** | Current evidence is single-user (the builder); logging path is proven. |
 
 ## Honest limitations (named, not hidden)
-- **Sandbox is defense-in-depth, not a hard boundary** — common reflection escapes, `getattr`/
-  `globals`/`open` are blocked at the AST scan, env scrubbed, network off; but read-only FS
-  access via other stdlib paths remains. Docker is the true-isolation path. ([[component-architecture]])
+- **The sandbox scan is not a security boundary** — confirmed escapes reach a shell, files and the
+  network; one (run-time strings evaluated as annotations) cannot be closed by any static scan. The
+  child runs as `nobody` only when the server is root. Agent and Playground stay off on public hosts
+  until the runner sidecar ships. ([[component-architecture]])
 - **Cache is conservative by design** — threshold 0.16 favours zero wrong-answer serving over
   hit-rate; the paraphrase/near-miss embedding bands overlap.
 - **Agent self-verification only tests what it thought to test** — a human probe found a

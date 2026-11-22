@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     debug: bool = False
     cors_origins: str = "*"  # comma-separated; Phase 1 narrows to the frontend origin
     playground_enabled: bool = True  # D11 kill switch
+    agent_enabled: bool = True  # kill switch for the Agent (it runs generated code too)
     dogfood_enabled: bool = True  # write the real-usage log (plan §11.2); off in tests
 
     # --- Qdrant Cloud (D1) ---

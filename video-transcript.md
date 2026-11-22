@@ -1,7 +1,7 @@
 # Video Transcript
 
 > Written version of the ~3-minute demo, recorded against the deployed app.
-> Video: https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f · Live app: https://frontend-production-3afb.up.railway.app/
+> Video: https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f · Live app: the Railway URL used in the recording is offline (moving to a new host)
 
 ## Product Name
 **FastPilot** — *Learn FastAPI, fast.*

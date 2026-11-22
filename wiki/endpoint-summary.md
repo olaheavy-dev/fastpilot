@@ -14,7 +14,7 @@ instances). Base URL defaults to `http://localhost:8000`; the frontend reaches i
 |---|---|---|---|
 | `POST` | `/query` | RAG | One-shot question → cited answer (JSON). |
 | `POST` | `/query/stream` | RAG | Same pipeline, streamed as **SSE**. |
-| `POST` | `/agent/stream` | Agent | Run the code-runner agent; streams the timeline as SSE. |
+| `POST` | `/agent/stream` | Agent | Run the code-runner agent; streams the timeline as SSE. `404` when `AGENT_ENABLED=false`. |
 | `POST` | `/execute` | Playground | Run user code in the sandbox → `ExecuteResult`. |
 | `POST` | `/fix` | Playground | LLM-fix broken code from its traceback → `FixResponse`. |
 | `POST` | `/feedback` | Feedback | Store 👍/👎 + comment; logs an Opik feedback score. |
@@ -109,7 +109,7 @@ to re-derive success from `exit_code`). On error it always closes with a termina
 
 ## Playground endpoints
 - `/execute` — guards in order: `playground_enabled` (else `404`) → oversize (>10 KB soft
-  cap) → per-session rate limit (3/min) → sandbox denylist. Returns a `guard` reason rather
+  cap) → per-session rate limit (3/min) → sandbox scan (import allowlist; guard value stays `denylist`); `unavailable` when the sandbox itself can't start. Returns a `guard` reason rather
   than a 5xx for expected rejections.
 - `/fix` — requires a healthy pipeline (`503` otherwise); prompts the LLM with the code +
   traceback and returns extracted code.

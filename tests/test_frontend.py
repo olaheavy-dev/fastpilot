@@ -310,3 +310,14 @@ def test_playground_fix_with_ai_shows_preview(monkeypatch):
     next(b for b in at.button if b.label == "▶ Run").click().run()
     next(b for b in at.button if "Fix with AI" in b.label).click().run()
     assert at.session_state["pg_fix_preview"] == "fixed = True"
+
+
+def test_agent_mode_and_teaser_hidden_when_disabled(monkeypatch):
+    monkeypatch.setenv("AGENT_ENABLED", "false")
+    at = AppTest.from_file(_APP, default_timeout=30)
+    at.session_state["mode"] = "▶ Agent"
+    at.run()
+    assert not at.exception
+    assert at.session_state["mode"] == "💬 Chat"
+    assert all("Agent" not in str(radio.value) for radio in at.radio)
+    assert not any("Write & run" in b.label for b in at.button)

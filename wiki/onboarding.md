@@ -79,8 +79,11 @@ You only need keys to talk to live services. See [[testing-strategy]].
 
 ## A few things that will surprise you
 
-- **The sandbox is in-process defense-in-depth, not a VM.** It blocks the textbook escapes
-  and removes secrets + network, but the honest production path is a Docker backend. This is
+- **The sandbox's AST scan is a filter, not a security boundary.** A security review (Nov 2026)
+  confirmed escapes to a shell, files and the network, including one no static scan can catch
+  (strings built at run time that FastAPI evaluates as annotations). The `nobody` privilege drop
+  only happens when the server is root. The boundary is the planned runner sidecar; until then
+  `AGENT_ENABLED` / `PLAYGROUND_ENABLED` stay off on public hosts. This is
   documented openly, not hidden — see [[component-architecture]] and [[feature-coverage]].
 - **Refusals aren't stored in conversation memory** — otherwise the next real question gets
   mis-rewritten as a follow-up. Small decision, real bug avoided.

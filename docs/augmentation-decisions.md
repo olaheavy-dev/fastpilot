@@ -64,6 +64,9 @@ self-verification could never catch. That is exactly why the human step exists.
 
 ## Honest limits
 - **Single-file apps only** — no database, no external network, no multi-module projects.
+- **Update 2026-11-22:** the denylist scan described below was replaced by an import allowlist and a
+  privilege drop after a review found shell escapes it missed; see the D6 update in
+  [`production-decisions.md`](production-decisions.md).
 - **Sandbox is single-box, defense-in-depth — not a hard boundary.** The AST scan blocks the
   textbook reflection escape (`().__class__.__bases__[0].__subclasses__()`), the reflection builtins
   (`getattr`/`globals`/`vars`/…) it would lean on, and direct `open` filesystem access — so the

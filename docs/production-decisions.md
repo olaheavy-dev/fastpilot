@@ -65,6 +65,15 @@ production-grade path is a Docker backend (`--network none --memory 256m`), defe
 Railway has no docker-in-docker. **Evidence:** safety suite (loop killed, network
 blocked, denylist + reflection escapes + `open` all rejected pre-exec, temp-dir isolation); full
 write-up in [`augmentation-decisions.md`](augmentation-decisions.md).
+**Update 2026-11-22:** a review found shell escapes the denylist missed (`posix.system`, `os.spawn*`,
+`os.posix_spawnp`, `__builtins__.eval`, an aliased `eval`, `typing.sys`, `asyncio.subprocess`). The scan
+is now an import **allowlist** plus a reflection / dangerous-attribute / code-in-string denylist, and the
+child drops to `nobody` when the server is root. A second, fresh-context review then confirmed more
+escapes, including one no static scan can close (a string built at run time and used as a type
+annotation, which FastAPI evaluates as code), and that the drop protects the keys only when the
+server is root. **Conclusion: the scan is a filter, not a boundary.** The boundary will be a runner
+sidecar container; until then `AGENT_ENABLED` and `PLAYGROUND_ENABLED` stay off on public hosts.
+Regression tests for each finding are in `tests/test_executor.py`.
 
 ### Playground (D11) — **added, with a threat model**
 **Why:** turns the agent's sandbox into a user-facing "now *you* tweak it" surface — the strongest demo
@@ -157,6 +166,10 @@ traffic, which is exactly the signal a production guardrail should surface.
 
 ## Deployment
 
+> **Update 2026-11-22:** the Railway deployment below is offline, and the free Qdrant Cloud and Redis
+> Cloud databases lapsed. The project is moving to a self-hosted VPS (see *Decisions, 2026-11-22* at
+> the end of this file). This section describes the original Railway setup.
+
 **Railway, two services in one project**:
 - **`frontend`** (Streamlit) — the **only** service with a public domain.
 - **`backend`** (FastAPI) — **private**, reached by the frontend at `backend.railway.internal`; no
@@ -186,3 +199,22 @@ still favour a hit (a cached answer is ~$0 + one RTT vs a full Voyage-rerank-Gem
 > **Deployed verification:** deployed `/health` reports healthy and chat + agent mode stream end-to-end through
 > Railway's proxy — verified on the public URL before recording the demo (SSE must arrive
 > token-by-token, not as one buffered blob).
+
+## Decisions, 2026-11-22 (relaunch after the free services lapsed)
+
+Recorded from the founder's answers in the project review session.
+
+| Decision | Founder's choice | Context |
+|---|---|---|
+| Where the live demo runs | "I have a VPS" | Railway returned 404; host on the founder's own VPS instead. |
+| Sandbox before relaunch | "Fix it, then relaunch (Recommended)" | Shell escapes found in the denylist scan; fixed in the sandbox-allowlist PR. |
+| Qdrant and Redis | "Self-host on the VPS (Recommended)" | The free cloud tiers went inactive (Qdrant refusing connections, Redis DNS gone). Self-hosted containers are never paused for being idle; needs backups. |
+| VPS size | "4 GB+ RAM, Docker installed" | Room for backend, frontend, Qdrant and Redis Stack together. |
+| Agent and Playground | "Keep both, add container isolation (Recommended)" | They are the core of the showcase. |
+| How to isolate code runs | "Runner sidecar (Recommended)" | Per-run containers need the Docker socket, which the infra rules do not allow for apps. A separate runner container with no keys, an internal-only network and a read-only filesystem. |
+| Staging vs production | "Replace staging with production (Recommended)" | One FastPilot stack at fastpilot.olaheavy.dev; fastpilot-staging.olaheavy.dev is retired. Saves RAM on the 4 GB server. |
+| Qdrant/Redis backups | "Treat as rebuildable (Recommended)" | No backups: Qdrant is rebuilt with the reindex script, and Redis holds only cache and chat memory. |
+| Timing of the VPS move | "After PR #85, behind Cloudflare (Recommended)" | Wait for infra Phase 21d-1, then move FastPilot as its own infra phase in Cloudflare edge mode. |
+| Staging during the fix | "Stop the whole stack" | The staging stack ran the old sandbox as root with live keys; both containers were stopped on 2026-11-22 (`docker compose start` brings them back). |
+| Rotate API keys | "Don't rotate" | No evidence of a leak; the founder chose to keep the current Gemini, Voyage and Opik keys. |
+| How to split the code work | "Two PRs: hardening now, runner next (Recommended)" | This PR hardens the executor and adds `AGENT_ENABLED`; the runner sidecar follows. |

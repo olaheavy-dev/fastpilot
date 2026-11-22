@@ -28,7 +28,7 @@ class FakeExecutor:
 
 
 @asynccontextmanager
-async def build(*, executor=None, playground=True, pipeline=None, per_minute=3):
+async def build(*, executor=None, playground=True, agent=True, pipeline=None, per_minute=3):
     import app.config as cfg
     from app.augmentations.rate_limit import RateLimiter
     from app.services import reset_services, set_services
@@ -37,6 +37,7 @@ async def build(*, executor=None, playground=True, pipeline=None, per_minute=3):
     cfg.get_settings.cache_clear()
     monkey = cfg.get_settings()
     monkey.playground_enabled = playground
+    monkey.agent_enabled = agent
     monkey.playground_rate_per_min = per_minute
 
     reset_services()
@@ -200,3 +201,19 @@ async def _collect_sse(client, path, payload):
             elif line.startswith("data:"):
                 events.append((event, json.loads(line.split(":", 1)[1].strip())))
     return events
+
+
+async def test_agent_disabled_returns_404_and_runs_nothing():
+    ex = FakeExecutor(ExecutionResult(0, "ok", "", 10))
+    async with build(executor=ex, agent=False) as client:
+        r = await client.post("/agent/stream", json={"task": "Write an endpoint", "session_id": "s"})
+    assert r.status_code == 404
+    assert "disabled" in r.json()["detail"]
+
+
+async def test_execute_unavailable_sandbox_is_a_guard_not_500():
+    ex = FakeExecutor(ExecutionResult(-1, "", "[sandbox] could not start", 3, unavailable=True))
+    async with build(executor=ex) as client:
+        r = await client.post("/execute", json={"code": "print(1)", "session_id": "s"})
+    assert r.status_code == 200
+    assert r.json()["guard"] == "unavailable"

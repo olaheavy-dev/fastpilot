@@ -155,3 +155,14 @@ def test_format_contexts_empty():
     from app.augmentations.agent_orchestrator import _format_contexts
 
     assert _format_contexts([]) == "(no context retrieved)"
+
+
+async def test_unavailable_sandbox_stops_without_fix_attempts():
+    down = ExecutionResult(-1, "", "[sandbox] could not start", 2, unavailable=True)
+    pipe = FakeAgentPipeline(["plan", _CODE, _CODE, _CODE])
+    orch = AgentOrchestrator(pipeline=pipe, executor=FakeExecutor([down]), max_fix_attempts=2)
+    events = await _drain(orch, "write an endpoint")
+
+    assert sum(1 for e in events if e["event"] == "code") == 1  # no pointless retries
+    assert any(e["event"] == "agent_step" and e["data"].get("detail") == "sandbox unavailable" for e in events)
+    assert events[-1]["data"]["success"] is False

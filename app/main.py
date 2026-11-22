@@ -579,6 +579,8 @@ def create_app() -> FastAPI:
 
     @application.post("/agent/stream", tags=["Agent"])
     async def agent_stream(request: AgentRequest, http: Request):  # noqa: ANN202
+        if not settings.agent_enabled:
+            raise HTTPException(status_code=404, detail="Agent is disabled.")
         svc = _Services(http.app)
         executor = http.app.state.executor
         session_id = request.session_id or svc.conversation.create_session_id()
@@ -636,6 +638,12 @@ def create_app() -> FastAPI:
                 ),
             )
         result = await asyncio.to_thread(http.app.state.executor.run, request.code)
+        if result.unavailable:
+            return ExecuteResult(
+                guard="unavailable",
+                exit_code=result.exit_code,
+                stderr="The code sandbox isn't available right now. Please try again in a minute.",
+            )
         if result.blocked:
             return ExecuteResult(
                 guard="denylist",

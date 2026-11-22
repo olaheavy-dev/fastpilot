@@ -7,5 +7,13 @@ import os
 _FALSE_VALUES = {"0", "false", "no", "off"}
 
 
+def _flag(name: str) -> bool:
+    return os.environ.get(name, "true").strip().lower() not in _FALSE_VALUES
+
+
 def playground_enabled() -> bool:
-    return os.environ.get("PLAYGROUND_ENABLED", "true").strip().lower() not in _FALSE_VALUES
+    return _flag("PLAYGROUND_ENABLED")
+
+
+def agent_enabled() -> bool:
+    return _flag("AGENT_ENABLED")
