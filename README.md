@@ -58,15 +58,20 @@ Streamlit frontend ──HTTP/SSE──> FastAPI backend ──> Qdrant Cloud (h
                                           │            Voyage (embed + rerank-2.5)
                                           │            Gemini 2.5 Flash (generate)
                                           ├──> Redis Cloud (conversation memory + semantic cache)
-                                          └──> Opik (tracing, prompt versioning, feedback)
+                                          ├──> Opik (tracing, prompt versioning, feedback)
+                                          └──Unix socket──> runner (runs generated code:
+                                                             no network, no keys, read-only)
 ```
 
 The backend ships SSE token streaming, a semantic cache, conversation memory with conditional
 query-rewrite, a query router, deterministic security guards, and graceful degradation when Redis or
-Qdrant is unavailable. The agent runs generated code in a separate Python process with an import allowlist, a scrubbed
-env, CPU/memory/process/time limits and (when the server is root) a drop to the `nobody` user. That
-scan is a filter, not a security boundary; real isolation (a separate runner container with no keys
-and no internet) is in progress, so code execution stays off on public hosts until it ships. Every production service is an explicit **add / skip decision**,
+Qdrant is unavailable. The agent runs generated code in a separate **runner** container with no network, no API keys, a
+read-only filesystem and dropped Linux capabilities. The backend reaches it over a Unix socket, and
+each run gets its own unprivileged user, CPU/memory/process/time limits and a clean-up. That runner is
+the security boundary. The import allowlist in front of it is a filter, not a boundary. Escaped code
+can still use the runner's CPU and memory, within its limits. Agent and Playground should not go
+public until the move to the VPS is done and issue #12 (the rate limit uses a session id the client
+chooses) is fixed. Every production service is an explicit **add / skip decision**,
 documented in [`docs/production-decisions.md`](docs/production-decisions.md).
 
 **Tech:** FastAPI · Streamlit · Qdrant Cloud · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5
@@ -130,8 +135,8 @@ uv run python scripts/01_verify_environment.py
 uv run python scripts/02_verify_collections.py
 uv run python scripts/03_setup_redis.py
 
-# 4a. Run with Docker (mirrors the Railway two-service topology)
-docker compose up backend frontend --build
+# 4a. Run with Docker (backend, frontend and the runner that executes generated code)
+docker compose up backend frontend --build   # starts the runner too
 
 # 4b. …or no Docker, two terminals:
 #   Terminal 1 — backend (FastAPI → http://localhost:8000, docs at /docs)
@@ -148,7 +153,7 @@ cd frontend && uv run streamlit run app.py
 | Redis Cloud | `REDIS_HOST/PORT/PASSWORD` | https://redis.io/cloud — **enable "Search & Query"** |
 | Opik | `OPIK_API_KEY`, `OPIK_WORKSPACE` | https://www.comet.com → Opik |
 
-Deploying your own copy? See [`DEPLOY.md`](DEPLOY.md) (Railway, two services).
+Deploying your own copy? See [`DEPLOY.md`](DEPLOY.md) (three services: backend, frontend, runner; the Railway steps there are historical).
 
 ---
 

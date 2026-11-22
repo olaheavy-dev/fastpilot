@@ -82,8 +82,9 @@ You only need keys to talk to live services. See [[testing-strategy]].
 - **The sandbox's AST scan is a filter, not a security boundary.** A security review (Nov 2026)
   confirmed escapes to a shell, files and the network, including one no static scan can catch
   (strings built at run time that FastAPI evaluates as annotations). The `nobody` privilege drop
-  only happens when the server is root. The boundary is the planned runner sidecar; until then
-  `AGENT_ENABLED` / `PLAYGROUND_ENABLED` stay off on public hosts. This is
+  only happens when the server is root. The boundary is the runner sidecar (a separate container with no
+  keys and no network; see [[component-architecture]]). Agent and Playground should not go public until
+  the VPS move and issue #12 are done. This is
   documented openly, not hidden — see [[component-architecture]] and [[feature-coverage]].
 - **Refusals aren't stored in conversation memory** — otherwise the next real question gets
   mis-rewritten as a follow-up. Small decision, real bug avoided.
@@ -99,6 +100,6 @@ refresh [[index]], and append to [[log]].**
 
 ## The honest state of the project
 Code, docs, evals, tests, CI, and deploy config are **done and green**. The two remaining
-steps are owner-only and browser-bound: **deploy to Railway** and **record a demo**, then
+steps are owner-only and browser-bound: **deploy to the VPS** (Railway is offline) and **record a demo**, then
 fill the placeholders in `README.md`. Those turn "great code" into "a product you can click."
 Tracked in [[feature-coverage]].

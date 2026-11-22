@@ -103,7 +103,7 @@ flowchart LR
     folder it doesn't own. Errors are logged, never raised.
 - Endpoints, served by `uvicorn --uds /run/fastpilot/runner.sock`:
   - `POST /run` with `{"code": str}` → the `ExecutionResult` fields as JSON.
-  - `GET /health` → `{"status": "ok", "runs": <count>, "uid": <euid>}`.
+  - `GET /health` → `{"status": "ok", "runs": <count>, "slots_free": <count>}`. (Changed during build: the first draft returned the runner's `uid`; `slots_free` is more useful to the backend's health check.)
 - **Two slots**, each with its own uid/gid: slot 1 = 61001, slot 2 = 61002 (fixed numbers, not used by any
   other account in the image). A request takes a free slot or waits for one, up to the backend's timeout.
 - **After every run in a slot** (success, error or timeout): kill every process owned by that slot's uid

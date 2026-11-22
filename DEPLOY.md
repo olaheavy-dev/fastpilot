@@ -1,8 +1,33 @@
 # Deploying FastPilot to Railway
 
-**Two services in one Railway project** (class week-5 topology): a private `backend` (FastAPI)
-and a public `frontend` (Streamlit). State is managed and external (Redis Cloud + Qdrant Cloud) —
-nothing stateful runs in a Railway container.
+> **Status 2026-11-22:** Railway is offline. FastPilot is moving to the founder's VPS after infra PR #85.
+> The Railway sections below are **historical**. Do not use them for a new deployment.
+
+## Services
+
+FastPilot now runs as **three services**:
+
+| Service | Image | Role |
+|---|---|---|
+| `backend` | `fastpilot-backend` | FastAPI. Holds the API keys. Sends generated code to the runner. |
+| `frontend` | `fastpilot-frontend` | Streamlit. The only service with a public address. |
+| `runner` | `fastpilot-runner` | Runs generated code. No network, no keys, read-only filesystem. |
+
+The backend and the runner share a Docker volume (`runner_sock`) that holds only the runner's Unix
+socket. The runner has `network_mode: none`, so nothing can reach it over a network. Compose sets
+`EXECUTOR_MODE=runner` and `ALLOW_LOCAL_EXECUTOR=false` on the backend, so Agent and Playground turn off
+if the runner is not used. Run everything locally with `docker compose up backend frontend --build`
+(the runner starts as a dependency).
+
+Do not make Agent and Playground public until the VPS move is done and issue #12 (the rate limit is
+keyed on a session id the client chooses) is fixed.
+
+## Historical: Railway (offline)
+
+The original setup was **two services in one Railway project** (class week-5 topology): a private
+`backend` (FastAPI) and a public `frontend` (Streamlit). Railway cannot run the runner container's
+Unix-socket setup, which is one reason for the move. State is managed and external (Redis Cloud and
+Qdrant Cloud); nothing stateful runs in a container.
 
 ## How it deploys — Railway's native GitHub integration (NOT GitHub Actions)
 
@@ -85,15 +110,14 @@ For an animated hero GIF in the README, drop the file at `docs/screenshots/hero.
 Talking points for the recording live in [`video-transcript.md`](video-transcript.md).
 
 ## Local parity
-`docker compose up backend frontend` (from the repo root) mirrors this topology against the same
-managed Redis/Qdrant — same Dockerfiles, so "works in compose" ≈ "works on Railway."
+`docker compose up backend frontend` (from the repo root) starts all three services against the same
+managed Redis/Qdrant — same Dockerfiles as the images below.
 
 ## GHCR images for SoloForge staging
 
-The `publish-ghcr.yml` workflow builds the backend and frontend Docker images for VPS staging.
-It does not replace Railway production deployment.
+The `publish-ghcr.yml` workflow builds the backend, frontend and runner Docker images for VPS staging.
 
-On pull requests, the workflow builds both images without pushing them. On push to `main`, or a
+On pull requests, the workflow builds all three images without pushing them. On push to `main`, or a
 manual workflow dispatch, it publishes:
 
 ```text
@@ -101,7 +125,9 @@ ghcr.io/sunkanmi-olawuwo/fastpilot-backend:main
 ghcr.io/sunkanmi-olawuwo/fastpilot-backend:sha-<short-sha>
 ghcr.io/sunkanmi-olawuwo/fastpilot-frontend:main
 ghcr.io/sunkanmi-olawuwo/fastpilot-frontend:sha-<short-sha>
+ghcr.io/sunkanmi-olawuwo/fastpilot-runner:main
+ghcr.io/sunkanmi-olawuwo/fastpilot-runner:sha-<short-sha>
 ```
 
-Runtime secrets are still supplied by the target platform. Do not bake Qdrant, Redis, Voyage,
+Runtime secrets are supplied by the target platform, to the backend only. The runner gets none. Do not bake Qdrant, Redis, Voyage,
 Google, or Opik credentials into the images.

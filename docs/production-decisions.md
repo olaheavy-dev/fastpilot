@@ -74,6 +74,20 @@ annotation, which FastAPI evaluates as code), and that the drop protects the key
 server is root. **Conclusion: the scan is a filter, not a boundary.** The boundary will be a runner
 sidecar container; until then `AGENT_ENABLED` and `PLAYGROUND_ENABLED` stay off on public hosts.
 Regression tests for each finding are in `tests/test_executor.py`.
+**Update 2026-11-22 (runner sidecar built):** the boundary now exists. Code runs in a separate `runner`
+container (no network, no keys, read-only filesystem, `cap_drop: ALL` plus four needed capabilities,
+`no-new-privileges`, 768 MB memory, 128 processes). The backend reaches it over a Unix socket and fails
+closed when it is down. Each of two slots has its own uid (61001, 61002), so one visitor cannot read
+another's files or processes; after every run leftover processes are killed and the slot's files are
+deleted, and a failed clean-up holds the slot back and restarts the runner. A startup gate turns Agent
+and Playground off if code would run inside the backend and that is not explicitly allowed
+(`ALLOW_LOCAL_EXECUTOR`). Proof tests (`tests/test_runner_integration.py`, `-m integration`, need
+Docker) check no network, no keys, a read-only filesystem and the slot isolation. **What it does not
+guarantee:** escaped code can still use the runner's CPU and memory, within its limits, and the scan in
+front of it is still only a filter. The built design is in
+`docs/superpowers/specs/2026-11-22-runner-sidecar-design.md`. Agent and Playground should not go public
+until the VPS move (after infra PR #85) is done and issue #12 (the rate limit is keyed on a session id
+the client chooses) is fixed. The demo is not live.
 
 ### Playground (D11) — **added, with a threat model**
 **Why:** turns the agent's sandbox into a user-facing "now *you* tweak it" surface — the strongest demo
@@ -168,7 +182,8 @@ traffic, which is exactly the signal a production guardrail should surface.
 
 > **Update 2026-11-22:** the Railway deployment below is offline, and the free Qdrant Cloud and Redis
 > Cloud databases lapsed. The project is moving to a self-hosted VPS (see *Decisions, 2026-11-22* at
-> the end of this file). This section describes the original Railway setup.
+> the end of this file). This section describes the original Railway setup. The stack now has a third
+> service, the `runner` (see the D6 update above); it is not part of the Railway setup below.
 
 **Railway, two services in one project**:
 - **`frontend`** (Streamlit) — the **only** service with a public domain.

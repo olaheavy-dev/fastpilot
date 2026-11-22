@@ -1,6 +1,9 @@
 """Sandboxed code executor (D6) — the one net-new piece with no class equivalent.
 
-Runs agent-generated / user FastAPI code with layered defenses:
+Runs agent-generated / user FastAPI code. The security boundary is the **runner sidecar**
+(``runner/``): a separate container with no keys, no network, a read-only filesystem and dropped
+capabilities, reached over a Unix socket (``EXECUTOR_MODE=runner``, see ``runner_client.py``). This
+module is the code the runner runs for each request. It layers these defenses:
   1. AST pre-scan           — an import *allowlist* (fastapi, pydantic and a safe slice of the
                               stdlib; everything else is rejected), plus a denylist of reflection
                               routes: dunder names/attributes, the eval/open/getattr builtins
@@ -10,10 +13,11 @@ Runs agent-generated / user FastAPI code with layered defenses:
                               and pydantic evaluate string annotations / ``ImportString``).
   2. Subprocess isolation   — a separate ``python -I`` process in a fresh temp dir, scrubbed env
                               (no API keys), own process group.
-  3. Privilege drop         — ONLY when the server runs as root (the Docker image does): the
-                              child runs as ``nobody`` (via Popen ``user=``/``group=``), so it
-                              cannot read the server's ``/proc/<pid>/environ``. As non-root
-                              (local dev) there is no drop and a warning is logged.
+  3. Privilege drop         — ONLY when the process runs as root (the runner and the backend
+                              image both do): the child runs as an unprivileged uid
+                              (``sandbox_uid``; ``nobody`` by default, one uid per slot in the
+                              runner) via Popen ``user=``/``group=``. As non-root (local dev)
+                              there is no drop and a warning is logged.
   4. Resource limits        — RLIMIT_CPU / RLIMIT_AS / RLIMIT_FSIZE via preexec_fn.
   5. Wall-clock timeout     — killpg the whole group on overrun.
   6. Network guard          — a prelude patches ``socket`` methods to raise. A convenience against
@@ -22,9 +26,10 @@ Runs agent-generated / user FastAPI code with layered defenses:
 The static scan is a FILTER, NOT A SECURITY BOUNDARY. Known, confirmed bypass: a string built at
 run time and used as a type annotation is evaluated by FastAPI/pydantic as code, and no static scan
 can see it (``test_runtime_built_annotation_is_not_caught_by_scan`` pins this). Escaped code can run
-a shell, read world-readable files and use the network. The boundary is OS isolation: the planned
-runner sidecar (no secrets, internal-only network, read-only filesystem). Until it ships, keep
-``AGENT_ENABLED`` and ``PLAYGROUND_ENABLED`` off on any public host.
+a shell and read files. In ``local`` mode that code runs inside the backend container, so keep
+``AGENT_ENABLED`` and ``PLAYGROUND_ENABLED`` off there (the startup gate enforces this unless
+``ALLOW_LOCAL_EXECUTOR`` is set). In ``runner`` mode escaped code is contained by the runner: it
+has no keys and no network, but it can still use the runner's CPU and memory, within its limits.
 
 The generated code self-verifies in-process with ``fastapi.testclient.TestClient`` (D7),
 so "running" never binds a port and stdout is a clean request/response log.

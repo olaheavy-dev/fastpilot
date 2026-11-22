@@ -103,7 +103,7 @@ Framework-light and fully unit-testable: inject a fake `pipeline` + fake `execut
 
 ### Sandboxed code executor — `code_executor.py`
 The one net-new piece with no off-the-shelf equivalent. Runs agent/user FastAPI code behind
-**layered defenses**:
+**layered defenses**. These run inside the runner sidecar (see below), which is the boundary:
 
 ```mermaid
 flowchart LR
@@ -116,15 +116,49 @@ flowchart LR
     NG --> TC[self-verify via<br/>fastapi.testclient.TestClient]
 ```
 
-> **Honest boundary — changed 2026-11-22:** the AST scan is a **filter, not a security boundary**.
+> **Honest boundary — changed 2026-11-22:** the AST scan is a **filter, not a security boundary**
+> (the runner sidecar below is the boundary).
 > The scan moved from an import denylist to an **allowlist** after a review found shell escapes
 > (`posix.system`, `os.spawn*`, `__builtins__.eval`, `typing.sys`, `asyncio.subprocess`). A second,
 > fresh-context review then confirmed more (event-loop `subprocess_shell`, `FileResponse` file reads,
 > raw sockets) and one **no static scan can close**: a string built at run time and used as a type
 > annotation, which FastAPI evaluates as code. The `nobody` drop protects the server's keys only
-> when the server runs as root. The boundary is the planned **runner sidecar** (a separate
-> container with no keys, an internal-only network and a read-only filesystem); until it ships,
-> `AGENT_ENABLED` and `PLAYGROUND_ENABLED` stay off on public hosts. See [[feature-coverage]].
+> when the server runs as root. That is why the code now runs in the runner sidecar. In `local`
+> mode (code runs inside the backend) the startup gate turns Agent and Playground off unless
+> `ALLOW_LOCAL_EXECUTOR=true`. See [[feature-coverage]].
+
+### Runner sidecar — `runner/` + `app/augmentations/runner_client.py`
+Added 2026-11-22. The security boundary for code execution: a separate container that runs the
+executor and holds no secrets. Design: `docs/superpowers/specs/2026-11-22-runner-sidecar-design.md`.
+
+```mermaid
+flowchart LR
+    BE[backend<br/>RunnerClient<br/>fails closed] -- HTTP over Unix socket<br/>runner_sock volume --> RS[runner<br/>POST /run · GET /health]
+    RS --> S1[slot 1<br/>uid 61001]
+    RS --> S2[slot 2<br/>uid 61002]
+    subgraph Runner container
+      RS
+      S1
+      S2
+    end
+```
+
+- **Container:** `network_mode: none`, read-only root, tmpfs `/tmp` (64 MB) and `/dev/shm` (8 MB),
+  `cap_drop: ALL` plus `SETUID`/`SETGID`/`CHOWN`/`KILL`, `no-new-privileges`, 768 MB memory,
+  128 processes, `init: true`. No `env_file`, so no keys.
+- **Socket:** `/run/fastpilot/runner.sock`, `root:1500`, mode `0660`, in a `root:root 0755` folder on
+  a shared volume. The slot uids are not in group 1500, so run code cannot connect to it.
+- **Two slots:** uids 61001 and 61002, so two visitors cannot read each other's files or processes.
+  After every run the runner kills leftover processes (including zombie leaders with live threads)
+  and deletes the slot's files in `/tmp` and `/dev/shm` as that uid.
+- **Fail-closed hold:** if a kill or clean-up fails, the slot is held back and the runner restarts.
+  The runner also restarts after 200 runs or 6 hours; new runs then get `[runner] restarting`.
+- **Backend side:** `RunnerClient` returns `unavailable=True` when the runner is down, never
+  falling back to local execution. Settings: `EXECUTOR_MODE` (`local` | `runner`), `RUNNER_SOCKET`,
+  `ALLOW_LOCAL_EXECUTOR`. `/health` shows `executor` and, in runner mode, `components.code_runner`.
+- **What it does not do:** escaped code can still use the runner's CPU and memory, within the limits
+  above. The `/execute` rate limit is keyed on a session id the client chooses (issue #12), so Agent
+  and Playground should not go public until the VPS move is done and that issue is fixed.
 
 ### Security + rate limit
 - `security.py` — `InputGuard` (regex prompt-injection detector, deliberately narrow to

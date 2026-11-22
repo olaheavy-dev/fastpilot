@@ -5,6 +5,33 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-22 — Runner sidecar built
+
+The sandbox scan is a filter, not a boundary, so generated code now runs in a separate container.
+- **Added:** `runner/` (FastAPI on a Unix socket; two uid slots 61001/61002; kills leftovers and
+  cleans `/tmp` and `/dev/shm` after every run; a failed clean-up holds the slot and restarts the
+  runner; restarts after 200 runs or 6 h), `runner/Dockerfile`, `app/augmentations/runner_client.py`
+  (fails closed), settings `EXECUTOR_MODE` / `RUNNER_SOCKET` / `ALLOW_LOCAL_EXECUTOR`, a startup gate
+  that turns Agent and Playground off when code would run in the backend, `executor` and
+  `components.code_runner` in `/health`, a hardened `runner` service in `docker-compose.yml`, a GHCR
+  image `fastpilot-runner`, and `httpx` in `app/requirements.txt`.
+- **Changed:** `code_executor.py` takes `sandbox_uid`/`sandbox_gid`, cleans up as the run uid and hands
+  the folder over with chown/chmod (root in the runner has no `DAC_OVERRIDE`). Its docstring now names
+  the runner as the boundary.
+- **Tests:** `tests/test_runner.py` and `tests/test_runner_client.py` (hermetic);
+  `tests/test_runner_integration.py` (`-m integration`, needs Docker). CI coverage gate now covers
+  `app/` and `runner/`.
+- **Honest limits:** escaped code can still use the runner's CPU and memory, within limits. Agent and
+  Playground should not go public until the VPS move (after infra PR #85) and issue #12 are done. The
+  demo is not live.
+- **Design doc fixed:** the runner's `/health` returns `slots_free`, not `uid` (noted in the doc).
+- **Contradiction noted:** older text said the runner was "planned" and "deferred"; updated in
+  [[component-architecture]], [[feature-coverage]], [[onboarding]], [[overview]], [[endpoint-summary]],
+  [[testing-strategy]], `README.md`, `DEPLOY.md` (Railway marked historical),
+  `docs/production-decisions.md` (D6 update) and `docs/augmentation-decisions.md`.
+
+---
+
 ## 2026-11-22 — Sandbox allowlist + privilege drop; relaunch decisions
 
 A project review found the Railway demo offline (404), the free Qdrant Cloud cluster refusing
