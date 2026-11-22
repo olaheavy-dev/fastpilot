@@ -2,10 +2,10 @@
 
 ``POST /run`` takes a free slot (or waits for one) and runs the code there with that slot's uid. Then,
 always: kill every process left behind by that uid (looped), delete that uid's files in ``/tmp`` and
-``/dev/shm`` as that uid, and give the slot back. If the kill fails, the slot is held back and the runner restarts (fail
-closed). After ``max_runs`` runs or ``max_age_s`` seconds, new requests get a "restarting" answer, the
-runs in flight finish, and the runner exits with code 0, so Docker's ``restart: always`` starts a
-clean container.
+``/dev/shm`` as that uid, and give the slot back. If the kill or the clean-up fails, the slot is held
+back and the runner restarts (fail closed). After ``max_runs`` runs or ``max_age_s`` seconds, new
+requests get a "restarting" answer, the runs in flight finish, and the runner exits with code 0, so
+Docker's ``restart: always`` starts a clean container.
 """
 
 from __future__ import annotations
@@ -90,7 +90,7 @@ def create_app(
         return None
 
     async def _kill_and_clean(uid: int) -> bool:
-        """Kill the slot uid's leftovers, then delete its files as that uid. False if the kill failed."""
+        """Kill the slot uid's leftovers, then delete its files as that uid. False if either failed."""
         try:
             await asyncio.to_thread(killer, uid)
         except Exception:
@@ -98,9 +98,13 @@ def create_app(
             return False
         clean = cleaner if cleaner is not None else clean_uid_tmp
         try:
-            await asyncio.to_thread(clean, uid)
+            cleaned = await asyncio.to_thread(clean, uid)
         except Exception:
-            logger.exception("clean-up failed for slot %s", uid)
+            logger.exception("clean-up failed for slot %s; holding the slot back and restarting", uid)
+            return False
+        if not cleaned:  # timed out or exited non-zero: the uid's files may still be there
+            logger.error("clean-up failed for slot %s; holding the slot back and restarting", uid)
+            return False
         return True
 
     @app.post("/run")

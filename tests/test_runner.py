@@ -68,8 +68,9 @@ def cleaned(monkeypatch) -> list:
     """Never let an app test delete real files in /tmp: record ``"clean <uid>"`` instead."""
     calls: list = []
 
-    def fake(uid: int) -> None:
+    def fake(uid: int) -> bool:
         calls.append(f"clean {uid}")
+        return True
 
     monkeypatch.setattr(runner_server, "clean_uid_tmp", fake)
     return calls
@@ -107,13 +108,47 @@ def test_kill_uid_processes_kills_only_matching_uid(tmp_path):
     assert n == 1 and killed == [10]
 
 
-def test_kill_uid_processes_skips_zombies(tmp_path):
-    # A zombie (already dead, waiting to be reaped) can't run code and can't be killed again.
-    (tmp_path / "14").mkdir()
-    (tmp_path / "14" / "status").write_text("Name:\tpython\nState:\tZ (zombie)\nUid:\t61001\t61001\t61001\t61001\n")
+def _write_task(root, pid: str, tid: str, state: str, uid: int = 61001) -> None:
+    d = root / pid / "task" / tid
+    d.mkdir(parents=True)
+    (d / "status").write_text(f"Name:\tpython\nState:\t{state}\nUid:\t{uid}\t{uid}\t{uid}\t{uid}\n")
+
+
+def _write_zombie_leader(root, pid: str, uid: int = 61001) -> None:
+    (root / pid).mkdir()
+    (root / pid / "status").write_text(f"Name:\tpython\nState:\tZ (zombie)\nUid:\t{uid}\t{uid}\t{uid}\t{uid}\n")
+
+
+def test_kill_uid_processes_true_zombie_is_signalled_but_does_not_loop(tmp_path):
+    # A real zombie (every thread dead, waiting to be reaped) stays in /proc whatever we send it.
+    _write_zombie_leader(tmp_path, "14")
+    _write_task(tmp_path, "14", "14", "Z (zombie)")
     killed: list[int] = []
-    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=_fake_kill(tmp_path, killed), pause_s=0) == 0
-    assert killed == []
+    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=lambda p, s: killed.append(p), pause_s=0) == 0
+    assert killed == [14]  # signalled once, then the loop ends
+
+
+def test_kill_uid_processes_zombie_leader_with_live_thread_is_killed(tmp_path):
+    # The main thread called pthread_exit (status shows Z) but another thread still runs as the uid.
+    _write_zombie_leader(tmp_path, "15")
+    _write_task(tmp_path, "15", "15", "Z (zombie)")
+    _write_task(tmp_path, "15", "16", "S (sleeping)")
+    killed: list[int] = []
+    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=_fake_kill(tmp_path, killed), pause_s=0) == 1
+    assert killed == [15]
+
+
+def test_kill_uid_processes_zombie_leader_with_live_thread_that_survives_fails(tmp_path):
+    _write_zombie_leader(tmp_path, "17")
+    _write_task(tmp_path, "17", "17", "Z (zombie)")
+    _write_task(tmp_path, "17", "18", "R (running)")
+    with pytest.raises(KillerError, match="10 passes"):
+        kill_uid_processes(61001, proc_root=str(tmp_path), kill=lambda p, s: None, pause_s=0)
+
+
+def test_kill_uid_processes_zombie_without_task_dir_counts_as_gone(tmp_path):
+    _write_zombie_leader(tmp_path, "19")  # the task folder vanished: the process was reaped meanwhile
+    assert kill_uid_processes(61001, proc_root=str(tmp_path), kill=lambda p, s: None, pause_s=0) == 0
 
 
 def test_kill_uid_processes_repeats_until_a_clean_pass(tmp_path):
@@ -198,14 +233,14 @@ def test_clean_uid_tmp_removes_only_that_uids_entries(tmp_path):
     (nested / "f").write_text("x")
     nested.chmod(0o500)  # the owner can still chmod it back and delete it
     (root / "c").symlink_to(outside)
-    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(root)])
+    assert clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(root)]) is True
     assert list(root.iterdir()) == []
     assert outside.read_text() == "not in tmp"  # the symlink went, not its target
 
 
 def test_clean_uid_tmp_leaves_other_uids_alone(tmp_path):
     (tmp_path / "a.txt").write_text("mine, not the slot's")
-    clean_uid_tmp(os.getuid() + 1, os.getgid(), roots=[str(tmp_path)])
+    assert clean_uid_tmp(os.getuid() + 1, os.getgid(), roots=[str(tmp_path)]) is True
     assert (tmp_path / "a.txt").exists()
 
 
@@ -215,7 +250,7 @@ def test_clean_uid_tmp_cleans_every_root_and_skips_a_missing_one(tmp_path):
     shm.mkdir()
     (tmp / "a.txt").write_text("left in /tmp")
     (shm / "b.bin").write_text("left in /dev/shm")
-    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(tmp), str(tmp_path / "missing"), str(shm)])
+    assert clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(tmp), str(tmp_path / "missing"), str(shm)]) is True
     assert list(tmp.iterdir()) == [] and list(shm.iterdir()) == []
 
 
@@ -234,7 +269,7 @@ def test_clean_uid_tmp_default_roots_are_tmp_and_dev_shm(monkeypatch):
 def test_clean_uid_tmp_logs_and_never_raises(tmp_path, caplog):
     not_a_folder = tmp_path / "file"
     not_a_folder.write_text("x")
-    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(not_a_folder)])
+    assert clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(not_a_folder)]) is False
     assert "clean-up" in caplog.text
 
 
@@ -243,8 +278,17 @@ def test_clean_uid_tmp_logs_when_the_child_cannot_start(tmp_path, monkeypatch, c
         raise OSError("cannot switch user")
 
     monkeypatch.setattr(runner_slots.subprocess, "run", boom)
-    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(tmp_path)])
+    assert clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(tmp_path)]) is False
     assert "cannot switch user" in caplog.text
+
+
+def test_clean_uid_tmp_timeout_is_a_failure(tmp_path, monkeypatch, caplog):
+    def slow(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw["timeout"])
+
+    monkeypatch.setattr(runner_slots.subprocess, "run", slow)
+    assert clean_uid_tmp(61001, roots=[str(tmp_path)]) is False
+    assert "clean-up" in caplog.text
 
 
 def test_clean_uid_tmp_switches_user_when_root(tmp_path, monkeypatch):
@@ -256,7 +300,7 @@ def test_clean_uid_tmp_switches_user_when_root(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runner_slots.os, "geteuid", lambda: 0)
     monkeypatch.setattr(runner_slots.subprocess, "run", fake_run)
-    clean_uid_tmp(61001, 61001, roots=[str(tmp_path)])
+    assert clean_uid_tmp(61001, 61001, roots=[str(tmp_path)]) is True
     assert (seen["user"], seen["group"], seen["extra_groups"], seen["timeout"]) == (61001, 61001, [], 5)
 
 
@@ -330,6 +374,23 @@ def test_killer_failure_holds_the_slot_back_and_restarts(error, cleaned):
     assert client.get("/health").json()["slots_free"] == 1  # that slot never goes back to the pool
     assert app.state.ready_to_exit() is True  # a held-back slot doesn't block the restart
     assert cleaned == []  # no clean-up as a uid that may still have live processes
+    body = client.post("/run", json={"code": "y"}).json()
+    assert body["unavailable"] is True and body["stderr"] == "[runner] restarting"
+
+
+@pytest.mark.parametrize("outcome", ["false", "raises"])
+def test_cleanup_failure_holds_the_slot_back_and_restarts(outcome):
+    def bad_cleaner(uid: int) -> bool:
+        if outcome == "raises":
+            raise RuntimeError("boom")
+        return False  # the child timed out or exited non-zero
+
+    app = create_app(_factory(), UIDS, killer=lambda uid: 0, cleaner=bad_cleaner)
+    client = TestClient(app)
+    assert client.post("/run", json={"code": "x"}).json()["ok"] is True
+    assert app.state.should_exit is True
+    assert client.get("/health").json()["slots_free"] == 1
+    assert app.state.ready_to_exit() is True
     body = client.post("/run", json={"code": "y"}).json()
     assert body["unavailable"] is True and body["stderr"] == "[runner] restarting"
 
