@@ -198,19 +198,43 @@ def test_clean_uid_tmp_removes_only_that_uids_entries(tmp_path):
     (nested / "f").write_text("x")
     nested.chmod(0o500)  # the owner can still chmod it back and delete it
     (root / "c").symlink_to(outside)
-    clean_uid_tmp(os.getuid(), os.getgid(), tmp_root=str(root))
+    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(root)])
     assert list(root.iterdir()) == []
     assert outside.read_text() == "not in tmp"  # the symlink went, not its target
 
 
 def test_clean_uid_tmp_leaves_other_uids_alone(tmp_path):
     (tmp_path / "a.txt").write_text("mine, not the slot's")
-    clean_uid_tmp(os.getuid() + 1, os.getgid(), tmp_root=str(tmp_path))
+    clean_uid_tmp(os.getuid() + 1, os.getgid(), roots=[str(tmp_path)])
     assert (tmp_path / "a.txt").exists()
 
 
+def test_clean_uid_tmp_cleans_every_root_and_skips_a_missing_one(tmp_path):
+    tmp, shm = tmp_path / "tmp", tmp_path / "shm"
+    tmp.mkdir()
+    shm.mkdir()
+    (tmp / "a.txt").write_text("left in /tmp")
+    (shm / "b.bin").write_text("left in /dev/shm")
+    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(tmp), str(tmp_path / "missing"), str(shm)])
+    assert list(tmp.iterdir()) == [] and list(shm.iterdir()) == []
+
+
+def test_clean_uid_tmp_default_roots_are_tmp_and_dev_shm(monkeypatch):
+    seen: dict = {}
+
+    def fake_run(cmd, **kw):
+        seen["cmd"] = cmd
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(runner_slots.subprocess, "run", fake_run)
+    clean_uid_tmp(61001)
+    assert seen["cmd"][-3:] == ["61001", "/tmp", "/dev/shm"]
+
+
 def test_clean_uid_tmp_logs_and_never_raises(tmp_path, caplog):
-    clean_uid_tmp(os.getuid(), os.getgid(), tmp_root=str(tmp_path / "missing"))
+    not_a_folder = tmp_path / "file"
+    not_a_folder.write_text("x")
+    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(not_a_folder)])
     assert "clean-up" in caplog.text
 
 
@@ -219,7 +243,7 @@ def test_clean_uid_tmp_logs_when_the_child_cannot_start(tmp_path, monkeypatch, c
         raise OSError("cannot switch user")
 
     monkeypatch.setattr(runner_slots.subprocess, "run", boom)
-    clean_uid_tmp(os.getuid(), os.getgid(), tmp_root=str(tmp_path))
+    clean_uid_tmp(os.getuid(), os.getgid(), roots=[str(tmp_path)])
     assert "cannot switch user" in caplog.text
 
 
@@ -232,7 +256,7 @@ def test_clean_uid_tmp_switches_user_when_root(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runner_slots.os, "geteuid", lambda: 0)
     monkeypatch.setattr(runner_slots.subprocess, "run", fake_run)
-    clean_uid_tmp(61001, 61001, tmp_root=str(tmp_path))
+    clean_uid_tmp(61001, 61001, roots=[str(tmp_path)])
     assert (seen["user"], seen["group"], seen["extra_groups"], seen["timeout"]) == (61001, 61001, [], 5)
 
 

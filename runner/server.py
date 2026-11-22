@@ -1,8 +1,8 @@
 """The runner's HTTP app, served on a Unix socket that our own code binds.
 
 ``POST /run`` takes a free slot (or waits for one) and runs the code there with that slot's uid. Then,
-always: kill every process left behind by that uid (looped), delete that uid's files in ``/tmp`` as that
-uid, and give the slot back. If the kill fails, the slot is held back and the runner restarts (fail
+always: kill every process left behind by that uid (looped), delete that uid's files in ``/tmp`` and
+``/dev/shm`` as that uid, and give the slot back. If the kill fails, the slot is held back and the runner restarts (fail
 closed). After ``max_runs`` runs or ``max_age_s`` seconds, new requests get a "restarting" answer, the
 runs in flight finish, and the runner exits with code 0, so Docker's ``restart: always`` starts a
 clean container.

@@ -86,46 +86,60 @@ def kill_uid_processes(
     raise KillerError(f"uid {uid} still had live processes after {max_passes} passes")
 
 
+CLEAN_ROOTS = ["/tmp", "/dev/shm"]  # both writable in the runner container
+
 # Runs as the slot uid (root in the runner has no DAC_OVERRIDE/FOWNER, so only the owner can delete).
-# Removes every top-level entry of the folder owned by that uid; symlinks are removed, never followed.
+# Removes every top-level entry of each root owned by that uid; symlinks are removed, never followed.
+# A root that doesn't exist is skipped.
 _CLEAN_SCRIPT = """
 import os, shutil, stat, sys
-root, uid = sys.argv[1], int(sys.argv[2])
+uid, roots = int(sys.argv[1]), sys.argv[2:]
 failed = 0
-for name in os.listdir(root):
-    path = os.path.join(root, name)
+for root in roots:
+    if not os.path.lexists(root):
+        continue
     try:
-        st = os.lstat(path)
-        if st.st_uid != uid:
-            continue
-        if stat.S_ISDIR(st.st_mode):
-            os.chmod(path, 0o700)
-            for top, dirs, _files in os.walk(path):
-                for d in dirs:
-                    sub = os.path.join(top, d)
-                    if not os.path.islink(sub):
-                        os.chmod(sub, 0o700)  # the owner can always open its own folders again
-            shutil.rmtree(path)
-        else:
-            os.unlink(path)
+        names = os.listdir(root)
     except OSError as exc:
-        print(f"{path}: {exc}", file=sys.stderr)
+        print(f"{root}: {exc}", file=sys.stderr)
         failed = 1
+        continue
+    for name in names:
+        path = os.path.join(root, name)
+        try:
+            st = os.lstat(path)
+            if st.st_uid != uid:
+                continue
+            if stat.S_ISDIR(st.st_mode):
+                os.chmod(path, 0o700)
+                for top, dirs, _files in os.walk(path):
+                    for d in dirs:
+                        sub = os.path.join(top, d)
+                        if not os.path.islink(sub):
+                            os.chmod(sub, 0o700)  # the owner can always open its own folders again
+                shutil.rmtree(path)
+            else:
+                os.unlink(path)
+        except OSError as exc:
+            print(f"{path}: {exc}", file=sys.stderr)
+            failed = 1
 sys.exit(failed)
 """
 
 
-def clean_uid_tmp(uid: int, gid: int | None = None, tmp_root: str = "/tmp") -> None:
-    """Delete every top-level entry in ``tmp_root`` owned by ``uid``, as that uid. Logs, never raises.
+def clean_uid_tmp(uid: int, gid: int | None = None, roots: list[str] | None = None) -> None:
+    """Delete every top-level entry owned by ``uid`` in each of ``roots`` (default ``/tmp`` and
+    ``/dev/shm``), as that uid. A missing root is skipped. Logs, never raises.
 
     Runs after the killer, so no leftover process can recreate files. The user switch happens only
     when we are root (as in the runner container); otherwise the child runs as the current user.
     """
     gid = uid if gid is None else gid
+    roots = list(CLEAN_ROOTS if roots is None else roots)
     drop = os.geteuid() == 0
     try:
         done = subprocess.run(
-            [sys.executable, "-I", "-c", _CLEAN_SCRIPT, tmp_root, str(uid)],
+            [sys.executable, "-I", "-c", _CLEAN_SCRIPT, str(uid), *roots],
             user=uid if drop else None,
             group=gid if drop else None,
             extra_groups=[] if drop else None,
@@ -135,10 +149,10 @@ def clean_uid_tmp(uid: int, gid: int | None = None, tmp_root: str = "/tmp") -> N
             text=True,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        logger.warning("clean-up of %s as uid %s failed: %s", tmp_root, uid, exc)
+        logger.warning("clean-up of %s as uid %s failed: %s", roots, uid, exc)
         return
     if done.returncode != 0:
-        logger.warning("clean-up of %s as uid %s failed: %s", tmp_root, uid, done.stderr.strip()[-500:])
+        logger.warning("clean-up of %s as uid %s failed: %s", roots, uid, done.stderr.strip()[-500:])
 
 
 class SlotPool:
