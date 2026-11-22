@@ -59,7 +59,8 @@ def _init_state() -> None:
 
 
 def _available_modes() -> list[str]:
-    return MODES if feature_flags.playground_enabled() else MODES[:2]
+    enabled = {MODES[1]: feature_flags.agent_enabled(), MODES[2]: feature_flags.playground_enabled()}
+    return [m for m in MODES if enabled.get(m, True)]
 
 
 def _new_chat() -> None:
@@ -313,7 +314,9 @@ def _welcome() -> None:
         unsafe_allow_html=True,
     )
     cols = st.columns(2)
-    for i, (label, query) in enumerate(SUGGESTIONS):
+    # The agent teaser (query None) only makes sense when Agent mode is on.
+    suggestions = [(label, q) for label, q in SUGGESTIONS if q is not None or feature_flags.agent_enabled()]
+    for i, (label, query) in enumerate(suggestions):
         with cols[i % 2]:
             if st.button(label, key=f"chip_{i}", use_container_width=True):
                 if query is None:  # agent teaser → Agent mode, pre-filled

@@ -107,19 +107,24 @@ The one net-new piece with no off-the-shelf equivalent. Runs agent/user FastAPI 
 
 ```mermaid
 flowchart LR
-    C[code] --> A[1 · AST pre-scan denylist<br/>blocks bad imports/calls,<br/>reflection escape, getattr/open]
+    C[code] --> A[1 · AST pre-scan<br/>import allowlist + reflection,<br/>dangerous-attribute and<br/>code-in-string denylist]
     A --> SP[2 · subprocess isolation<br/>python -I, fresh tmp cwd,<br/>scrubbed env, own pgroup]
-    SP --> RL[3 · resource limits<br/>RLIMIT CPU / AS / FSIZE]
-    RL --> WT[4 · wall-clock timeout<br/>killpg on overrun]
-    WT --> NG[5 · network guard<br/>socket.connect patched to raise]
+    SP --> PD[3 · privilege drop<br/>child runs as nobody<br/>ONLY when the server is root]
+    PD --> RL[4 · resource limits<br/>RLIMIT CPU / AS / FSIZE]
+    RL --> WT[5 · wall-clock timeout<br/>killpg on overrun]
+    WT --> NG[6 · network guard<br/>convenience only, bypassable]
     NG --> TC[self-verify via<br/>fastapi.testclient.TestClient]
 ```
 
-> **Honest boundary:** this is *defense-in-depth in-process*, not a hard guarantee — the
-> common reflection escapes are closed and the blast radius is capped (no secrets, no
-> network), but a Docker backend (`--network none --memory 256m`) is the documented
-> production path, deferred only because Railway offers no docker-in-docker. See
-> [[feature-coverage]].
+> **Honest boundary — changed 2026-11-22:** the AST scan is a **filter, not a security boundary**.
+> The scan moved from an import denylist to an **allowlist** after a review found shell escapes
+> (`posix.system`, `os.spawn*`, `__builtins__.eval`, `typing.sys`, `asyncio.subprocess`). A second,
+> fresh-context review then confirmed more (event-loop `subprocess_shell`, `FileResponse` file reads,
+> raw sockets) and one **no static scan can close**: a string built at run time and used as a type
+> annotation, which FastAPI evaluates as code. The `nobody` drop protects the server's keys only
+> when the server runs as root. The boundary is the planned **runner sidecar** (a separate
+> container with no keys, an internal-only network and a read-only filesystem); until it ships,
+> `AGENT_ENABLED` and `PLAYGROUND_ENABLED` stay off on public hosts. See [[feature-coverage]].
 
 ### Security + rate limit
 - `security.py` — `InputGuard` (regex prompt-injection detector, deliberately narrow to

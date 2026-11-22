@@ -1,23 +1,30 @@
 """Sandboxed code executor (D6) — the one net-new piece with no class equivalent.
 
 Runs agent-generated / user FastAPI code with layered defenses:
-  1. AST pre-scan denylist  — reject denied imports/calls/builtins AND the reflection escape
-                              (dunder-attribute access like ``().__class__.__subclasses__()`` and
-                              ``getattr``/``globals``/``open``) before anything runs.
-  2. Subprocess isolation   — fresh temp dir as cwd, ``python -I`` (isolated), scrubbed
-                              env (no API keys), own process group.
-  3. resource limits        — RLIMIT_CPU / RLIMIT_AS / RLIMIT_FSIZE via preexec_fn.
-  4. wall-clock timeout      — killpg the whole group on overrun.
-  5. network guard          — a prelude monkeypatches ``socket.connect`` to raise, so
-                              urllib/requests/httpx all fail at connect (TestClient is
-                              in-process ASGI, so it's unaffected).
+  1. AST pre-scan           — an import *allowlist* (fastapi, pydantic and a safe slice of the
+                              stdlib; everything else is rejected), plus a denylist of reflection
+                              routes: dunder names/attributes, the eval/open/getattr builtins
+                              wherever they appear, attribute names that lead to dangerous
+                              modules (``typing.sys``, ``asyncio.subprocess``, ``logging.os``) and
+                              string constants that themselves parse as dangerous code (FastAPI
+                              and pydantic evaluate string annotations / ``ImportString``).
+  2. Subprocess isolation   — a separate ``python -I`` process in a fresh temp dir, scrubbed env
+                              (no API keys), own process group.
+  3. Privilege drop         — ONLY when the server runs as root (the Docker image does): the
+                              child runs as ``nobody`` (via Popen ``user=``/``group=``), so it
+                              cannot read the server's ``/proc/<pid>/environ``. As non-root
+                              (local dev) there is no drop and a warning is logged.
+  4. Resource limits        — RLIMIT_CPU / RLIMIT_AS / RLIMIT_FSIZE via preexec_fn.
+  5. Wall-clock timeout     — killpg the whole group on overrun.
+  6. Network guard          — a prelude patches ``socket`` methods to raise. A convenience against
+                              accidental network use only: escaped code can open raw sockets.
 
-Residual risk is honest: a *pure in-process Python* sandbox is defense-in-depth, not a hard
-boundary. The common reflection escapes are closed and the blast radius is capped (scrubbed
-env = no secrets, socket guard = no network), but read-only FS access via other stdlib paths
-(e.g. ``pathlib``) remains, and a sufficiently obscure technique may exist. Only OS isolation
-guarantees it — a Docker backend (``--network none --memory 256m``) is the documented
-production-grade path, deferred only because Railway offers no docker-in-docker.
+The static scan is a FILTER, NOT A SECURITY BOUNDARY. Known, confirmed bypass: a string built at
+run time and used as a type annotation is evaluated by FastAPI/pydantic as code, and no static scan
+can see it (``test_runtime_built_annotation_is_not_caught_by_scan`` pins this). Escaped code can run
+a shell, read world-readable files and use the network. The boundary is OS isolation: the planned
+runner sidecar (no secrets, internal-only network, read-only filesystem). Until it ships, keep
+``AGENT_ENABLED`` and ``PLAYGROUND_ENABLED`` off on any public host.
 
 The generated code self-verifies in-process with ``fastapi.testclient.TestClient`` (D7),
 so "running" never binds a port and stdout is a clean request/response log.
@@ -28,6 +35,7 @@ from __future__ import annotations
 import ast
 import logging
 import os
+import resource
 import signal
 import subprocess
 import sys
@@ -38,66 +46,130 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# --- AST denylist ---------------------------------------------------------
-_DENIED_IMPORTS = {
-    "subprocess",
-    "socket",
-    "_socket",
-    "ctypes",
-    "multiprocessing",
-    "resource",
-    "mmap",
-    "fcntl",
-    "pty",
-    "shutil",
-}
-_DENIED_CALL_PATHS = {
-    "os.system",
-    "os.popen",
-    "os.remove",
-    "os.unlink",
-    "os.rmdir",
-    "os.removedirs",
-    "os.kill",
-    "os.fork",
-    "os.setuid",
-    "os.setgid",
-    "shutil.rmtree",
-    "shutil.move",
-    "importlib.import_module",
-}
-# A denied `module.member` call (e.g. os.system) is only caught as a *dotted* call. But
-# `from os import system` rebinds it to a bare name the call-path scan never matches, so the
-# import itself must be rejected. Derived from _DENIED_CALL_PATHS so the two can't drift.
-_DENIED_FROM_MEMBERS: dict[str, set[str]] = {
-    mod: {p.split(".", 1)[1] for p in _DENIED_CALL_PATHS if p.startswith(mod + ".")}
-    for mod in {p.split(".", 1)[0] for p in _DENIED_CALL_PATHS if "." in p}
-}
-# eval/exec/compile/__import__ run arbitrary code; getattr/setattr/vars/globals/locals are the
-# reflection primitives that reach denied objects by *string*, sidestepping the name-based scan;
-# open is direct filesystem access. None have a legitimate use in a self-contained FastAPI example.
-_DENIED_BUILTINS = {
-    "eval", "exec", "compile", "__import__",
-    "getattr", "setattr", "delattr", "vars", "globals", "locals", "breakpoint", "open",
-}
+# --- AST scan -------------------------------------------------------------
+# Top-level modules a self-contained FastAPI example may import. Deliberately excludes os, sys,
+# pathlib, io, subprocess, socket, importlib, inspect, operator (attrgetter = getattr by string),
+# string (Formatter.get_field = getattr by string) and anything that touches files or processes.
+_ALLOWED_IMPORTS = frozenset(
+    {
+        "__future__", "fastapi", "starlette", "pydantic", "pydantic_core", "annotated_types",
+        "typing", "typing_extensions", "dataclasses", "enum", "abc", "datetime", "time", "zoneinfo",
+        "json", "uuid", "decimal", "fractions", "math", "statistics", "random", "re", "collections",
+        "functools", "itertools", "copy", "contextlib", "asyncio", "http", "base64", "hashlib",
+        "hmac", "secrets", "textwrap", "ipaddress", "logging", "warnings",
+    }
+)
+# eval/exec/compile/__import__ run arbitrary code; getattr & co. reach objects by *string*,
+# sidestepping the name-based scan; open is file access. Denied as names *and* attributes, in any
+# context — so `e = eval`, `__builtins__.eval` and `io.open` are all caught, not only direct calls.
+_DENIED_BUILTINS = frozenset(
+    {
+        "eval", "exec", "compile", "__import__", "getattr", "setattr", "delattr", "vars", "globals",
+        "locals", "breakpoint", "open",
+    }
+)
+# Attribute names that lead from an allowed module to a dangerous one (``typing.sys``,
+# ``logging.os``, ``asyncio.subprocess``), run processes, walk frames to reach globals, or load
+# code by string (pydantic's ``ImportString``/``import_string``).
+_DENIED_ATTRS = frozenset(
+    {
+        "os", "sys", "posix", "nt", "subprocess", "builtins", "importlib", "modules", "pathlib",
+        "shutil", "socket", "_socket", "ctypes", "signal", "resource", "pty", "mmap",
+        "popen", "fork", "forkpty", "environ", "getenv", "putenv",
+        "execl", "execle", "execlp", "execlpe", "execv", "execve", "execvp", "execvpe",
+        "spawnl", "spawnle", "spawnlp", "spawnlpe", "spawnv", "spawnve", "spawnvp", "spawnvpe",
+        "posix_spawn", "posix_spawnp", "create_subprocess_exec", "create_subprocess_shell",
+        "open_code", "FileIO", "f_globals", "f_locals", "f_builtins", "f_back", "f_code",
+        "gi_frame", "cr_frame", "ag_frame", "tb_frame", "tb_next", "ImportString", "import_string",
+        "v1", "load_module", "exec_module", "get_data",
+        # asyncio's event loop can start processes and open raw network endpoints directly.
+        "subprocess_shell", "subprocess_exec", "getaddrinfo", "getnameinfo", "create_connection",
+        "create_datagram_endpoint", "create_server", "create_unix_server", "create_unix_connection",
+        "open_connection", "open_unix_connection", "start_server", "start_unix_server", "sock_connect",
+        "sock_sendto", "SocketType",
+        # File serving / reading helpers in starlette + fastapi, and logging's config-by-dict loader.
+        "FileResponse", "StaticFiles", "dictConfig", "fileConfig",
+    }
+)
+# `re.compile(...)` is everyday code, so the compile *builtin* is denied only as a bare name.
+_DENIED_ATTRS = _DENIED_ATTRS | (_DENIED_BUILTINS - {"compile"})
+# Submodules of allowed packages that reach processes, files, the network or code-by-config.
+_DENIED_MODULES = frozenset(
+    {
+        "logging.config", "logging.handlers", "asyncio.subprocess", "asyncio.base_subprocess",
+        "asyncio.unix_events", "http.server", "http.client", "http.cookiejar", "starlette.config",
+        "starlette.staticfiles", "fastapi.staticfiles", "pydantic.v1",
+    }
+)
+# Dunder names with a legitimate use in an example (`if __name__ == "__main__":`).
+_ALLOWED_DUNDER_NAMES = frozenset({"__name__", "__main__", "__doc__", "__file__"})
+# Dunder attributes everyday code reads: `super().__init__(...)`, `type(exc).__name__`, `f.__doc__`.
+_ALLOWED_DUNDER_ATTRS = frozenset({"__init__", "__name__", "__qualname__", "__doc__"})
+_MAX_STRING_DEPTH = 3
 
+# Prepended by the executor (never scanned): imports socket itself, which user code may not.
+# Its names are dunders so user code (which may not reference dunder names) cannot reach them.
+# This is a convenience guard against accidental network use, not a security control: a process
+# that escapes the scan can open raw sockets. Real network isolation needs OS isolation.
 _NET_PRELUDE = (
-    "import socket as _fp_sock\n"
-    "def _fp_no_net(*a, **k):\n"
+    "import socket as __fp_sock__\n"
+    "def __fp_no_net__(*a, **k):\n"
     "    raise OSError('network access is disabled in the FastPilot sandbox')\n"
-    "_fp_sock.socket.connect = _fp_no_net\n"
-    "_fp_sock.socket.connect_ex = _fp_no_net\n"
+    "for __fp_m__ in ('connect', 'connect_ex', 'bind', 'sendto', 'sendmsg'):\n"
+    "    setattr(__fp_sock__.socket, __fp_m__, __fp_no_net__)\n"
+    "del __fp_m__\n"
 )
 
 
-def _dotted(node: ast.AST) -> str | None:
-    parts: list[str] = []
-    while isinstance(node, ast.Attribute):
-        parts.append(node.attr)
-        node = node.value
-    if isinstance(node, ast.Name):
-        parts.append(node.id)
-        return ".".join(reversed(parts))
+def _is_dunder(name: str) -> bool:
+    return name.startswith("__") and name.endswith("__")
+
+
+def _denied_module(name: str) -> bool:
+    return any(name == m or name.startswith(m + ".") for m in _DENIED_MODULES)
+
+
+def _scan_tree(tree: ast.AST, *, in_string: bool, depth: int) -> str | None:
+    """Return a block reason, or None. ``in_string`` = scanning code found inside a string
+    constant: only clearly dangerous shapes are flagged there, so ordinary strings like
+    ``"open"`` or ``"__main__"`` never cause a false refusal."""
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            if isinstance(node, ast.ImportFrom) and node.level:
+                return "relative imports are not allowed in the sandbox"
+            names = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+            if isinstance(node, ast.ImportFrom):  # `from logging import config` reaches a submodule too
+                names += [f"{node.module}.{a.name}" for a in node.names]
+            for name in names:
+                if name.split(".")[0] not in _ALLOWED_IMPORTS or _denied_module(name):
+                    return f"import of '{name}' is not allowed in the sandbox"
+            if isinstance(node, ast.ImportFrom):
+                for alias in node.names:
+                    if alias.name in _DENIED_ATTRS or _is_dunder(alias.name):
+                        return f"import of '{node.module}.{alias.name}' is not allowed in the sandbox"
+        elif isinstance(node, ast.Attribute):
+            if _is_dunder(node.attr) and node.attr not in _ALLOWED_DUNDER_ATTRS:
+                return f"access to '{node.attr}' (reflection) is not allowed in the sandbox"
+            if node.attr in _DENIED_ATTRS:
+                return f"access to '.{node.attr}' is not allowed in the sandbox"
+        elif isinstance(node, ast.Name):
+            if _is_dunder(node.id) and node.id not in _ALLOWED_DUNDER_NAMES:
+                return f"use of '{node.id}' is not allowed in the sandbox"
+            if node.id in _DENIED_BUILTINS and not in_string:
+                return f"use of '{node.id}' is not allowed in the sandbox"
+        elif isinstance(node, ast.Call) and in_string:
+            if isinstance(node.func, ast.Name) and node.func.id in _DENIED_BUILTINS:
+                return f"use of '{node.func.id}' is not allowed in the sandbox"
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and depth < _MAX_STRING_DEPTH:
+            # FastAPI/pydantic evaluate string annotations (forward refs) and ImportString values,
+            # so a string can be code. Scan any string that parses as Python.
+            try:
+                sub = ast.parse(node.value.strip(), mode="eval")
+            except (SyntaxError, ValueError):
+                continue
+            reason = _scan_tree(sub, in_string=True, depth=depth + 1)
+            if reason:
+                return reason + " (found inside a string)"
     return None
 
 
@@ -108,32 +180,8 @@ def scan_code(code: str) -> tuple[bool, str | None]:
         tree = ast.parse(code)
     except SyntaxError:
         return True, None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name.split(".")[0] in _DENIED_IMPORTS:
-                    return False, f"import of '{alias.name}' is not allowed in the sandbox"
-        elif isinstance(node, ast.ImportFrom):
-            mod = node.module or ""
-            if mod.split(".")[0] in _DENIED_IMPORTS:
-                return False, f"import from '{node.module}' is not allowed in the sandbox"
-            denied_members = _DENIED_FROM_MEMBERS.get(mod, set())
-            for alias in node.names:
-                if alias.name in denied_members or (mod == "os" and alias.name.startswith("exec")):
-                    return False, f"import of '{mod}.{alias.name}' is not allowed in the sandbox"
-        elif isinstance(node, ast.Call):
-            name = _dotted(node.func)
-            if name and (name in _DENIED_CALL_PATHS or (name.startswith("os.exec"))):
-                return False, f"call to '{name}' is not allowed in the sandbox"
-            if isinstance(node.func, ast.Name) and node.func.id in _DENIED_BUILTINS:
-                return False, f"use of '{node.func.id}' is not allowed in the sandbox"
-        elif isinstance(node, ast.Attribute):
-            # Dunder attribute access is the reflection escape: `().__class__.__bases__[0]
-            # .__subclasses__()` walks the object graph to Popen/etc. without naming it. No
-            # self-contained FastAPI example needs `__class__`/`__globals__`/`__mro__`/… .
-            if node.attr.startswith("__") and node.attr.endswith("__"):
-                return False, f"access to '{node.attr}' (reflection) is not allowed in the sandbox"
-    return True, None
+    reason = _scan_tree(tree, in_string=False, depth=0)
+    return (reason is None), reason
 
 
 # --- Result ---------------------------------------------------------------
@@ -171,13 +219,40 @@ def _scrubbed_env() -> dict[str, str]:
     return {k: v for k, v in os.environ.items() if not _is_secret_key(k)}
 
 
-def _preexec(cpu_s: int, mem_bytes: int, fsize_bytes: int):  # noqa: ANN202
-    def _apply() -> None:
-        import resource
+# Unprivileged uid/gid for sandbox children when the server runs as root ("nobody" on Debian).
+SANDBOX_UID = 65534
+SANDBOX_GID = 65534
 
-        os.setsid()  # own process group so a timeout can killpg the whole tree
+
+def _should_drop_privileges() -> bool:
+    return hasattr(os, "geteuid") and os.geteuid() == 0
+
+
+_warned_no_drop = False
+
+
+def _warn_no_drop() -> None:
+    """Without root the child shares the server's uid and could read its environment (API keys)
+    after a scan escape. Fine for local dev; never expose Agent/Playground publicly like this."""
+    global _warned_no_drop
+    _warned_no_drop = True
+    logger.warning(
+        "Sandbox is running WITHOUT a privilege drop (server is not root): an escape could read the "
+        "server's environment. Keep AGENT_ENABLED/PLAYGROUND_ENABLED off on any public host without OS isolation."
+    )
+
+
+def _limits(cpu_s: int, mem_bytes: int, fsize_bytes: int, nproc: int | None):  # noqa: ANN202
+    """preexec_fn body: only async-signal-safe-ish setrlimit calls, no imports (``resource`` is
+    imported at module level). Popen applies ``start_new_session`` and the user/group switch in C
+    *before* this runs; lowering limits needs no privilege, and ``nobody`` cannot raise them back."""
+
+    def _apply() -> None:
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_s, cpu_s + 1))
-        for limit, value in ((resource.RLIMIT_AS, mem_bytes), (resource.RLIMIT_FSIZE, fsize_bytes)):
+        limits = [(resource.RLIMIT_AS, mem_bytes), (resource.RLIMIT_FSIZE, fsize_bytes)]
+        if nproc is not None:  # counts every process/thread of the uid, so only safe for a dedicated uid
+            limits.append((resource.RLIMIT_NPROC, nproc))
+        for limit, value in limits:
             try:
                 resource.setrlimit(limit, (value, value))
             except (ValueError, OSError):  # not all limits enforce on every OS (macOS RLIMIT_AS)
@@ -197,12 +272,14 @@ class SubprocessExecutor:
         mem_mb: int = 512,
         max_output_chars: int = 20_000,
         max_file_bytes: int = 5_000_000,
+        max_procs: int = 64,
     ):
         self.wall_timeout_s = wall_timeout_s
         self.cpu_seconds = cpu_seconds
         self.mem_bytes = mem_mb * 1024 * 1024
         self.max_output = max_output_chars
         self.max_file_bytes = max_file_bytes
+        self.max_procs = max_procs
 
     def run(self, code: str) -> ExecutionResult:
         ok, reason = scan_code(code)
@@ -211,7 +288,14 @@ class SubprocessExecutor:
             return ExecutionResult(-1, "", reason or "blocked", 0, blocked=True, block_reason=reason)
 
         with tempfile.TemporaryDirectory(prefix="fastpilot_sbx_") as tmp:
-            (Path(tmp) / "main.py").write_text(_NET_PRELUDE + "\n" + code, encoding="utf-8")
+            script = Path(tmp) / "main.py"
+            script.write_text(_NET_PRELUDE + "\n" + code, encoding="utf-8")
+            drop = _should_drop_privileges()
+            if not drop and not _warned_no_drop:
+                _warn_no_drop()
+            if drop:  # the unprivileged child must own its cwd + script to read/write them
+                for path in (tmp, script):
+                    os.chown(path, SANDBOX_UID, SANDBOX_GID)
             start = time.monotonic()
             proc = subprocess.Popen(
                 [sys.executable, "-I", "-W", _SUPPRESS_WARNING, "main.py"],
@@ -220,7 +304,15 @@ class SubprocessExecutor:
                 stderr=subprocess.PIPE,
                 text=True,
                 env=_scrubbed_env(),
-                preexec_fn=_preexec(self.cpu_seconds, self.mem_bytes, self.max_file_bytes),
+                start_new_session=True,  # own process group so a timeout can killpg the whole tree
+                # Run as `nobody` when we can (server is root): the server's /proc/<pid>/environ is
+                # then unreadable. Done by Popen in C, which is safe in a threaded server.
+                user=SANDBOX_UID if drop else None,
+                group=SANDBOX_GID if drop else None,
+                extra_groups=[] if drop else None,
+                preexec_fn=_limits(
+                    self.cpu_seconds, self.mem_bytes, self.max_file_bytes, self.max_procs if drop else None
+                ),
             )
             timed_out = False
             try:
@@ -231,7 +323,15 @@ class SubprocessExecutor:
                     os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                stdout, stderr = proc.communicate()
+                try:  # an escaped grandchild in a new session can hold the pipes open: don't wait forever
+                    stdout, stderr = proc.communicate(timeout=2)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    for pipe in (proc.stdout, proc.stderr):
+                        if pipe:
+                            pipe.close()
+                    proc.wait(timeout=2)
+                    stdout, stderr = "", "[sandbox] output pipes held open after kill; output discarded"
             duration_ms = int((time.monotonic() - start) * 1000)
 
             return ExecutionResult(

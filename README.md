@@ -13,14 +13,15 @@ A production **RAG** system that closes the loop from reading to running:
 ![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen)
 ![Coverage gate](https://img.shields.io/badge/coverage-≥90%25-brightgreen)
 
-**[▶ Live demo](https://frontend-production-3afb.up.railway.app/)** · **[Video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f)** · **[Docs & architecture](https://github.com/sunkanmi-olawuwo/fastpilot/wiki)**
+**[Video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f)** · **[Docs & architecture](https://github.com/sunkanmi-olawuwo/fastpilot/wiki)**
 
 <img src="docs/screenshots/01-welcome.png" alt="FastPilot welcome screen" width="780">
 
 </div>
 
-> **Live** on Railway — try the [demo](https://frontend-production-3afb.up.railway.app/) (it may take a few
-> seconds to wake from idle). The screenshots below are real renders of the UI.
+> **Live demo:** temporarily offline while FastPilot moves from Railway to a new host. The
+> [video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f) shows it running, and the
+> screenshots below are real renders of the UI.
 
 ---
 
@@ -62,8 +63,10 @@ Streamlit frontend ──HTTP/SSE──> FastAPI backend ──> Qdrant Cloud (h
 
 The backend ships SSE token streaming, a semantic cache, conversation memory with conditional
 query-rewrite, a query router, deterministic security guards, and graceful degradation when Redis or
-Qdrant is unavailable. The agent runs generated code through a hardened in-process sandbox (AST
-denylist, env scrubbed, network off). Every production service is an explicit **add / skip decision**,
+Qdrant is unavailable. The agent runs generated code in a separate Python process with an import allowlist, a scrubbed
+env, CPU/memory/process/time limits and (when the server is root) a drop to the `nobody` user. That
+scan is a filter, not a security boundary; real isolation (a separate runner container with no keys
+and no internet) is in progress, so code execution stays off on public hosts until it ships. Every production service is an explicit **add / skip decision**,
 documented in [`docs/production-decisions.md`](docs/production-decisions.md).
 
 **Tech:** FastAPI · Streamlit · Qdrant Cloud · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5

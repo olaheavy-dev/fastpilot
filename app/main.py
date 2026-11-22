@@ -579,6 +579,8 @@ def create_app() -> FastAPI:
 
     @application.post("/agent/stream", tags=["Agent"])
     async def agent_stream(request: AgentRequest, http: Request):  # noqa: ANN202
+        if not settings.agent_enabled:
+            raise HTTPException(status_code=404, detail="Agent is disabled.")
         svc = _Services(http.app)
         executor = http.app.state.executor
         session_id = request.session_id or svc.conversation.create_session_id()

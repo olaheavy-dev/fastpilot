@@ -5,6 +5,33 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-22 — Sandbox allowlist + privilege drop; relaunch decisions
+
+A project review found the Railway demo offline (404), the free Qdrant Cloud cluster refusing
+connections and the Redis Cloud database gone (DNS no longer resolves). It also found shell escapes
+in the sandbox scan: `posix.system`, `os.spawn*`, `os.posix_spawnp`, `__builtins__.eval`, an aliased
+`eval`, `typing.sys` and `asyncio.subprocess` all passed the old denylist and ran.
+- **Changed:** `app/augmentations/code_executor.py` now uses an import **allowlist** plus a denylist of
+  reflection routes, dangerous attribute names and code inside strings; the child drops to `nobody`
+  when the server is root. Verified in a Linux root container: the captured agent programs still
+  pass, and with the scan disabled the child gets `PermissionError` reading the server's environ.
+- **Tests:** a regression test per escape in `tests/test_executor.py`; tests that relied on `sys`,
+  `urllib` and `pathlib` (now blocked on purpose) were rewritten.
+- **Second review (fresh context) sent it back:** confirmed escapes via the event loop's
+  `subprocess_shell`, run-time strings evaluated as annotations, `FileResponse`, `logging.config` and
+  raw sockets, plus a pinned server thread after a timeout and false refusals (`re.compile`,
+  `super().__init__`). Fixed: those routes, a bounded second wait, `RLIMIT_NPROC`, privilege drop via
+  `Popen(user=, group=)` (thread-safe), the false refusals, and a new **`AGENT_ENABLED`** kill switch.
+  The unfixable one is pinned by a strict `xfail` test. Docs now say the scan is a filter, not a boundary.
+- **Staging stopped:** `fastpilot-staging.olaheavy.dev` ran the old sandbox as root with live keys;
+  both containers were stopped on the VPS (founder's choice). The infra uptime check will fail until
+  production replaces it.
+- **Decisions** (VPS, self-hosted Qdrant + Redis treated as rebuildable, runner sidecar, replace staging
+  with production after infra PR #85, keep keys, two PRs) are recorded in `docs/production-decisions.md`.
+- **Pages updated:** [[component-architecture]] (diagram + honest-boundary note), [[feature-coverage]],
+  [[onboarding]], [[endpoint-summary]], [[testing-strategy]].
+- **Removed:** `video-transcript-orignal.md` (misspelt duplicate of `video-transcript.md`).
+
 ## 2026-07-01 — Watchtower auto-update proof marker
 
 Added non-runtime proof marker files to the backend and frontend Docker build contexts so a merge to

@@ -48,7 +48,7 @@ real `ConversationService` on **`fakeredis`** — plus a `build_client(...)` hel
   what the backend emits; `app/models.py` is the shared source of truth (see [[endpoint-summary]]).
 - **Requirements drift tripwire** (`test_smoke`) — every dep in `app/requirements.txt` must
   exist in `pyproject.toml`, so the container image and dev env can't silently diverge.
-- **Sandbox denylist** (`test_executor`, `test_security`) — AST escapes (reflection,
+- **Sandbox scan** (`test_executor`, `test_security`) — import allowlist, a regression test per known escape (reflection, shell, string-eval,
   `getattr`/`open`), network, and resource overruns are all asserted blocked.
 - **Resilience** — degraded paths (no Redis, no keys) return `degraded`/structured guards,
   never 5xx.

@@ -48,7 +48,7 @@ def test_testclient_import_warning_suppressed():
 
 
 def test_stderr_and_nonzero_exit_captured():
-    result = EXEC.run("import sys\nprint('to err', file=sys.stderr)\nraise ValueError('boom')\n")
+    result = EXEC.run("import logging\nlogging.warning('to err')\nraise ValueError('boom')\n")
     assert not result.ok
     assert result.exit_code != 0
     assert "boom" in result.stderr
@@ -61,19 +61,29 @@ def test_infinite_loop_killed():
     assert result.duration_ms <= 16_000  # killed by CPU/wall limit, not hung
 
 
-def test_network_blocked_at_runtime():
-    # urllib is an allowed import; the runtime socket guard must still block the connect.
-    code = "import urllib.request\nurllib.request.urlopen('http://example.com', timeout=3)\n"
-    result = EXEC.run(code)
-    assert not result.ok
-    assert "disabled" in result.stderr or "OSError" in result.stderr or "URLError" in result.stderr
+def test_network_modules_blocked_at_scan():
+    result = EXEC.run("import urllib.request\nurllib.request.urlopen('http://example.com', timeout=3)\n")
+    assert result.blocked and "urllib" in (result.block_reason or "")
+
+
+def test_network_prelude_blocks_connect_at_runtime(tmp_path):
+    # The prelude is the second net layer for anything that slips the scan. Exercise it directly.
+    from app.augmentations.code_executor import _NET_PRELUDE
+
+    script = tmp_path / "net.py"
+    script.write_text(_NET_PRELUDE + "import urllib.request\nurllib.request.urlopen('http://example.com', timeout=3)\n")
+    import subprocess
+
+    proc = subprocess.run([sys.executable, "-I", str(script)], capture_output=True, text=True, timeout=20)
+    assert proc.returncode != 0
+    assert "network access is disabled" in proc.stderr
 
 
 @pytest.mark.parametrize(
     "code,needle",
     [
         ("import subprocess\nsubprocess.run(['ls'])\n", "subprocess"),
-        ("import os\nos.system('echo hi')\n", "os.system"),
+        ("import os\nos.system('echo hi')\n", "'os'"),
         ("eval('1+1')\n", "eval"),
         # Reflection escapes: reach denied objects without naming them. All blocked at scan.
         ("print(().__class__.__bases__[0].__subclasses__())\n", "__subclasses__"),
@@ -82,7 +92,7 @@ def test_network_blocked_at_runtime():
         ("print(open('/etc/passwd').read())\n", "open"),
     ],
 )
-def test_denylist_rejects_before_execution(code, needle):
+def test_scan_rejects_before_execution(code, needle):
     result = EXEC.run(code)
     assert result.blocked is True
     assert needle in (result.block_reason or "")
@@ -96,12 +106,10 @@ def test_memory_limit_enforced():
     assert "allocated" not in result.stdout
 
 
-def test_temp_dir_isolation_no_leak():
-    # The file the agent writes lives in the throwaway temp cwd; nothing persists.
-    code = "from pathlib import Path\nPath('scratch.txt').write_text('x')\nprint(Path.cwd())\n"
-    result = EXEC.run(code)
-    assert result.ok
-    assert "fastpilot_sbx_" in result.stdout  # ran inside an isolated temp dir
+def test_file_access_modules_blocked():
+    for mod in ("pathlib", "os", "io", "sys", "shutil"):
+        ok, reason = scan_code(f"import {mod}\n")
+        assert ok is False and mod in reason
 
 
 # --- scan_code units (no subprocess) --------------------------------------
@@ -124,7 +132,7 @@ def test_scan_rejects_import_from_denied_module():
 def test_scan_rejects_os_exec_family():
     ok, reason = scan_code("import os\nos.execv('/bin/sh', ['sh'])\n")
     assert ok is False
-    assert "os.exec" in reason
+    assert "'os'" in reason
 
 
 @pytest.mark.parametrize(
@@ -133,10 +141,10 @@ def test_scan_rejects_os_exec_family():
         # `from os import system` rebinds the call to a bare name, sidestepping the dotted
         # os.system path scan — the import itself must be rejected. (Regression: this bypass
         # previously passed the scan.)
-        ("from os import system\nsystem('id')\n", "os.system"),
-        ("from os import system as s\ns('id')\n", "os.system"),
-        ("from os import popen\npopen('id')\n", "os.popen"),
-        ("from os import execv\n", "os.execv"),
+        ("from os import system\nsystem('id')\n", "\'os\'"),
+        ("from os import system as s\ns('id')\n", "\'os\'"),
+        ("from os import popen\npopen('id')\n", "\'os\'"),
+        ("from os import execv\n", "\'os\'"),
     ],
 )
 def test_scan_rejects_denied_member_from_import(code, needle):
@@ -145,24 +153,141 @@ def test_scan_rejects_denied_member_from_import(code, needle):
     assert needle in reason
 
 
-def test_scan_allows_benign_os_member_import():
-    ok, reason = scan_code("from os import getcwd\nprint(getcwd())\n")
-    assert ok and reason is None
+@pytest.mark.parametrize(
+    "code",
+    [
+        # Everything the captured agent runs uses (evaluations/eval_results/agent_code/).
+        "from typing import Annotated\nfrom fastapi import FastAPI, Depends\nfrom pydantic import BaseModel, Field\n",
+        "from datetime import datetime\nfrom enum import Enum\nimport json, uuid, asyncio\n",
+        'if __name__ == "__main__":\n    print({"status": "open", "x": "__main__"})\n',
+        'from fastapi import FastAPI\napp = FastAPI()\n'
+        '@app.get("/items/{item_id}")\ndef f(item_id: "int"):\n    return 1\n',
+    ],
+)
+def test_scan_allows_normal_example_code(code):
+    ok, reason = scan_code(code)
+    assert ok, reason
 
 
-# --- runtime limits + output handling -------------------------------------
-def test_wall_timeout_kills_sleeping_process():
-    # time.sleep burns no CPU, so only the wall-clock timer can stop it.
-    fast = SubprocessExecutor(wall_timeout_s=1, cpu_seconds=3, mem_mb=256)
-    result = fast.run("import time\ntime.sleep(30)\nprint('done')\n")
-    assert result.timed_out is True
-    assert not result.ok
-    assert result.exit_code == -9
-    assert "wall-clock timeout" in result.stderr
-    assert "done" not in result.stdout
+@pytest.mark.parametrize(
+    "code",
+    [
+        # Each of these passed the old denylist scan and ran (found in the Nov 2026 review).
+        'import posix\nposix.system("echo x")\n',
+        'import os\nos.spawnlp(os.P_WAIT, "echo", "echo")\n',
+        'import os\nos.posix_spawnp("echo", ["echo"], {})\n',
+        '__builtins__.eval("1")\n',
+        'e = eval\ne("1")\n',
+        'import typing\ntyping.sys.modules["os"]\n',
+        "import asyncio\nasyncio.subprocess.PIPE\n",
+        "import asyncio\nasyncio.create_subprocess_shell('id')\n",
+        "import logging\nlogging.os.getpid()\n",
+        # String routes: FastAPI evaluates string annotations; pydantic imports ImportString values.
+        "def f(x: \"__import__('os').system('id')\"):\n    pass\n",
+        "from pydantic import ImportString\n",
+        "import pydantic\npydantic.ImportString\n",
+        # getattr-by-string helpers.
+        "import operator\noperator.attrgetter('x')\n",
+        "import string\nstring.Formatter().get_field('0', [1], {})\n",
+        # Frame walking to reach a module's globals.
+        "def g():\n    yield 1\ng().gi_frame.f_globals\n",
+        "from . import x\n",
+    ],
+)
+def test_scan_blocks_known_escapes(code):
+    ok, reason = scan_code(code)
+    assert ok is False, f"escape passed the scan: {code!r}"
+    assert reason
 
 
-def test_stdout_truncated_to_max_output():
-    small = SubprocessExecutor(wall_timeout_s=4, cpu_seconds=3, mem_mb=256, max_output_chars=10)
-    result = small.run("print('x' * 1000)\n")
-    assert len(result.stdout) <= 10  # capped, never floods the UI/transcript
+def test_privileges_dropped_only_as_root(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    monkeypatch.setattr(ce.os, "geteuid", lambda: 0)
+    assert ce._should_drop_privileges() is True
+    monkeypatch.setattr(ce.os, "geteuid", lambda: 1000)
+    assert ce._should_drop_privileges() is False
+
+
+def test_popen_switches_to_nobody_as_root(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    captured = {}
+
+    class _Proc:
+        pid = 1
+        returncode = 0
+
+        def communicate(self, timeout=None):
+            return "", ""
+
+    def fake_popen(*args, **kwargs):
+        captured.update(kwargs)
+        return _Proc()
+
+    monkeypatch.setattr(ce.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(ce.os, "chown", lambda *a: None)
+    monkeypatch.setattr(ce.subprocess, "Popen", fake_popen)
+    ce.SubprocessExecutor(wall_timeout_s=2).run("print(1)\n")
+    assert captured["user"] == 65534 and captured["group"] == 65534 and captured["extra_groups"] == []
+    assert captured["start_new_session"] is True
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        # Found by the fresh-context security review (Nov 2026); each passed the first allowlist scan.
+        "import asyncio\nasync def m():\n    l = asyncio.get_running_loop()\n"
+        "    await l.subprocess_shell(asyncio.SubprocessProtocol, 'echo x')\n",
+        "import asyncio\nasyncio.get_event_loop().subprocess_exec\n",
+        "import logging.config\n",
+        "from logging import config\n",
+        "from fastapi.responses import FileResponse\n",
+        "import fastapi\nfastapi.responses.FileResponse('/etc/passwd')\n",
+        "from starlette.staticfiles import StaticFiles\n",
+        "from starlette.config import Config\n",
+        "import http.server\n",
+        "print(__fp_sock__)\n",  # the network prelude's names are unreachable
+        "import asyncio\nasyncio.get_event_loop().create_datagram_endpoint\n",
+    ],
+)
+def test_scan_blocks_review_findings(code):
+    ok, reason = scan_code(code)
+    assert ok is False, f"passed the scan: {code!r}"
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        # Everyday code the first allowlist wrongly refused (review finding P2-1).
+        "import re\npattern = re.compile(r'^[a-z]+$')\n",
+        "class AppError(Exception):\n    def __init__(self, msg):\n        super().__init__(msg)\n",
+        "def h(exc):\n    return type(exc).__name__\n",
+        "def r(input: str):\n    return {'input': input}\n",
+        "from pydantic import BaseModel\nclass M(BaseModel):\n    system: str\nM(system='x').system\n",
+    ],
+)
+def test_scan_allows_everyday_code(code):
+    ok, reason = scan_code(code)
+    assert ok, reason
+
+
+@pytest.mark.xfail(strict=True, reason="Known limit: strings built at run time are invisible to a static scan. "
+                   "FastAPI evaluates them as annotations. Only OS isolation (the runner sidecar) contains this.")
+def test_runtime_built_annotation_is_not_caught_by_scan():
+    code = 's = "int if __imp" + "ort__(\'o\'+\'s\') else int"\ndef f(q: s = 1):\n    pass\n'
+    ok, _ = scan_code(code)
+    assert ok is False
+
+
+def test_timeout_returns_even_if_escaped_grandchild_holds_pipes(monkeypatch):
+    """Review finding P1-2: a grandchild in a new session survives killpg and keeps stdout open;
+    the second wait must be bounded so a server thread is never pinned."""
+    from app.augmentations import code_executor as ce
+
+    monkeypatch.setattr(ce, "scan_code", lambda code: (True, None))  # simulate a scan escape
+    ex = ce.SubprocessExecutor(wall_timeout_s=1, cpu_seconds=5, mem_mb=512)
+    code = "import subprocess, time\nsubprocess.Popen(['sleep', '20'], start_new_session=True)\ntime.sleep(20)\n"
+    result = ex.run(code)
+    assert result.timed_out
+    assert result.duration_ms < 8_000
