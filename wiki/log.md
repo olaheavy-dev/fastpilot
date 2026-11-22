@@ -5,6 +5,35 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-22 — Session hand-over (open items, next steps, founder to-dos)
+
+**Merged today:** #17 sandbox hardening (allowlist, privilege drop, `AGENT_ENABLED`), #19 runner
+sidecar (visitor code runs in a no-network, no-keys container). Decisions: `docs/production-decisions.md`;
+build rulings: the runner design doc.
+
+**Current state**
+- Nothing is public. Railway is gone; FastPilot staging on the VPS is **stopped** (`docker compose start`
+  in `/home/apps/fastpilot` brings it back, but it still points at the lapsed Qdrant/Redis Cloud).
+- Qdrant Cloud and Redis Cloud free databases have lapsed. Gemini, Voyage and Opik keys work (not rotated,
+  founder's choice).
+- The infra uptime check (`staging-uptime.yml`) was already disabled.
+
+**Next steps, in order**
+1. Fix #12: key the Playground/Agent rate limit on the client IP from a trusted proxy header. Required before
+   any public code execution.
+2. After infra PR #85 (Vestagraph Phase 21d-1) merges: a new infra phase moves FastPilot to
+   `fastpilot.olaheavy.dev` in Cloudflare edge mode: self-hosted Qdrant + Redis Stack (treated as rebuildable),
+   the runner service, reindex the corpus, retire `fastpilot-staging`, re-point the uptime check. The infra
+   FastPilot template must set `EXECUTOR_MODE=runner` and `ALLOW_LOCAL_EXECUTOR=false`.
+3. Showcase: personal-website#161 (case-study page with GSAP, can start now), then #20 (demo + explainer
+   video with Remotion, after the VPS move).
+4. Smaller follow-ups: #13 routers, #14 course leftovers, #15 `make check`, #16 old repo owner in badges/GHCR,
+   #18 stale test counts, #21 compose `../.env` path.
+
+**Founder to-dos**
+- Review and merge personal-website#162 (one register line) once Codex has reviewed it.
+- Decide when to start #12 and the infra phase; GSAP and Remotion PRs are founder-merge (new packages).
+
 ## 2026-11-22 — Runner sidecar built
 
 The sandbox scan is a filter, not a boundary, so generated code now runs in a separate container.
