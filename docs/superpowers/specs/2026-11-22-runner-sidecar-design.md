@@ -1,6 +1,6 @@
 # Runner sidecar — design
 
-Date: 22 November 2026 · Status: draft, awaiting founder approval · Builds on PR #17 (sandbox hardening)
+Date: 22 November 2026 · Status: approved by the founder on 22 Nov 2026 ("Approve + visual page (Recommended)") · Builds on PR #17 (sandbox hardening)
 
 Revised after a builder check (a fresh reviewer read it as if planning the build).
 
