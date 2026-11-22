@@ -262,6 +262,24 @@ def _limits(cpu_s: int, mem_bytes: int, fsize_bytes: int, nproc: int | None):  #
     return _apply
 
 
+def _cleanup_as(path: str, uid: int, gid: int) -> None:
+    """Delete ``path`` as ``uid``/``gid``. In the runner container root has no DAC_OVERRIDE/FOWNER,
+    so it cannot list or delete a 0700 folder owned by the slot uid; the owner must do it.
+    Errors are logged, never raised."""
+    try:
+        subprocess.run(
+            [sys.executable, "-I", "-c", "import shutil,sys; shutil.rmtree(sys.argv[1], ignore_errors=True)", path],
+            user=uid,
+            group=gid,
+            extra_groups=[],
+            timeout=5,
+            check=False,
+            capture_output=True,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("Sandbox clean-up as uid %s failed: %s", uid, exc)
+
+
 class SubprocessExecutor:
     """Default executor (D6). Construct with small limits in tests for speed."""
 
@@ -274,6 +292,8 @@ class SubprocessExecutor:
         max_output_chars: int = 20_000,
         max_file_bytes: int = 5_000_000,
         max_procs: int = 64,
+        sandbox_uid: int = SANDBOX_UID,
+        sandbox_gid: int = SANDBOX_GID,
     ):
         self.wall_timeout_s = wall_timeout_s
         self.cpu_seconds = cpu_seconds
@@ -281,6 +301,8 @@ class SubprocessExecutor:
         self.max_output = max_output_chars
         self.max_file_bytes = max_file_bytes
         self.max_procs = max_procs
+        self.sandbox_uid = sandbox_uid
+        self.sandbox_gid = sandbox_gid
 
     def _spawn(self, tmp: str, drop: bool) -> subprocess.Popen:
         return subprocess.Popen(
@@ -293,8 +315,8 @@ class SubprocessExecutor:
             start_new_session=True,  # own process group so a timeout can killpg the whole tree
             # Run as `nobody` when we can (server is root): the server's /proc/<pid>/environ is
             # then unreadable. Done by Popen in C, which is safe in a threaded server.
-            user=SANDBOX_UID if drop else None,
-            group=SANDBOX_GID if drop else None,
+            user=self.sandbox_uid if drop else None,
+            group=self.sandbox_gid if drop else None,
             extra_groups=[] if drop else None,
             preexec_fn=_limits(
                 self.cpu_seconds, self.mem_bytes, self.max_file_bytes, self.max_procs if drop else None
@@ -307,7 +329,7 @@ class SubprocessExecutor:
             logger.info("Sandbox blocked code: %s", reason)
             return ExecutionResult(-1, "", reason or "blocked", 0, blocked=True, block_reason=reason)
 
-        with tempfile.TemporaryDirectory(prefix="fastpilot_sbx_") as tmp:
+        with tempfile.TemporaryDirectory(prefix="fastpilot_sbx_", ignore_cleanup_errors=True) as tmp:
             script = Path(tmp) / "main.py"
             script.write_text(_NET_PRELUDE + "\n" + code, encoding="utf-8")
             drop = _should_drop_privileges()
@@ -315,7 +337,7 @@ class SubprocessExecutor:
                 _warn_no_drop()
             if drop:  # the unprivileged child must own its cwd + script to read/write them
                 for path in (tmp, script):
-                    os.chown(path, SANDBOX_UID, SANDBOX_GID)
+                    os.chown(path, self.sandbox_uid, self.sandbox_gid)
             start = time.monotonic()
             try:
                 proc = self._spawn(tmp, drop)
@@ -347,6 +369,8 @@ class SubprocessExecutor:
                     proc.wait(timeout=2)
                     stdout, stderr = "", "[sandbox] output pipes held open after kill; output discarded"
             duration_ms = int((time.monotonic() - start) * 1000)
+            if drop:  # root cannot always delete the slot uid's files, so the slot uid does it
+                _cleanup_as(tmp, self.sandbox_uid, self.sandbox_gid)
 
             return ExecutionResult(
                 exit_code=-9 if timed_out else (proc.returncode or 0),

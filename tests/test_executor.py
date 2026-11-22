@@ -228,9 +228,81 @@ def test_popen_switches_to_nobody_as_root(monkeypatch):
     monkeypatch.setattr(ce.os, "geteuid", lambda: 0)
     monkeypatch.setattr(ce.os, "chown", lambda *a: None)
     monkeypatch.setattr(ce.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(ce, "_cleanup_as", lambda *a: None)  # the clean-up helper must not really spawn
     ce.SubprocessExecutor(wall_timeout_s=2).run("print(1)\n")
     assert captured["user"] == 65534 and captured["group"] == 65534 and captured["extra_groups"] == []
     assert captured["start_new_session"] is True
+
+
+def _fake_root(monkeypatch, ce, captured):
+    class _Proc:
+        pid = 1
+        returncode = 0
+
+        def communicate(self, timeout=None):
+            return "", ""
+
+    def fake_popen(*args, **kwargs):
+        captured.update(kwargs)
+        return _Proc()
+
+    monkeypatch.setattr(ce.os, "geteuid", lambda: 0)
+    monkeypatch.setattr(ce.os, "chown", lambda *a: None)
+    monkeypatch.setattr(ce.subprocess, "Popen", fake_popen)
+
+
+def test_popen_uses_configured_slot_uid_as_root(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    captured = {}
+    _fake_root(monkeypatch, ce, captured)
+    monkeypatch.setattr(ce, "_cleanup_as", lambda *a: None)
+    ce.SubprocessExecutor(wall_timeout_s=2, sandbox_uid=61001, sandbox_gid=61001).run("print(1)\n")
+    assert captured["user"] == 61001 and captured["group"] == 61001 and captured["extra_groups"] == []
+
+
+def test_cleanup_runs_as_slot_uid_when_root(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    calls = []
+    _fake_root(monkeypatch, ce, {})
+    monkeypatch.setattr(ce, "_cleanup_as", lambda *a: calls.append(a))
+    ce.SubprocessExecutor(wall_timeout_s=2, sandbox_uid=61001, sandbox_gid=61001).run("print(1)\n")
+    assert len(calls) == 1
+    path, uid, gid = calls[0]
+    assert path.startswith("/") and "fastpilot_sbx_" in path and (uid, gid) == (61001, 61001)
+
+
+def test_no_cleanup_helper_when_not_root(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    calls = []
+    monkeypatch.setattr(ce.os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(ce, "_cleanup_as", lambda *a: calls.append(a))
+    ce.SubprocessExecutor(wall_timeout_s=4).run("print(1)\n")
+    assert calls == []
+
+
+def test_cleanup_as_logs_and_swallows_errors(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    def boom(*a, **k):
+        raise OSError("no such uid")
+
+    monkeypatch.setattr(ce.subprocess, "run", boom)
+    ce._cleanup_as("/nonexistent", 61001, 61001)  # must not raise
+
+
+def test_cleanup_as_runs_rmtree_as_uid(monkeypatch):
+    from app.augmentations import code_executor as ce
+
+    captured = {}
+    monkeypatch.setattr(ce.subprocess, "run", lambda *a, **k: captured.update(args=a, kwargs=k))
+    ce._cleanup_as("/x/y", 61002, 61002)
+    cmd = captured["args"][0]
+    assert cmd[1:3] == ["-I", "-c"] and cmd[-1] == "/x/y" and "rmtree" in cmd[3]
+    kw = captured["kwargs"]
+    assert kw["user"] == 61002 and kw["group"] == 61002 and kw["extra_groups"] == [] and kw["timeout"] == 5
 
 
 @pytest.mark.parametrize(
