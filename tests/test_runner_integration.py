@@ -154,7 +154,7 @@ def test_other_slot_cannot_read_a_running_program():
         owner = ""
         for _ in range(30):
             owner = _exec("sh", "-c", "stat -c %u /tmp/fastpilot_sbx_* 2>/dev/null", user=None).stdout.strip()
-            if owner:
+            if owner in ("61001", "61002"):  # just after mkdtemp the folder is still root's ("0"): keep polling
                 break
             time.sleep(0.1)
         assert owner in ("61001", "61002"), owner

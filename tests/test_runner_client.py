@@ -105,9 +105,69 @@ def test_get_executor_returns_runner_client_in_runner_mode(monkeypatch):
     monkeypatch.setattr(s, "runner_socket", "/nonexistent.sock")
     monkeypatch.setattr(ce, "_executor", None)
     ex = ce.get_executor()
-    assert isinstance(ex, RunnerClient) and ex.timeout_s == s.executor_wall_timeout_s + 10
+    assert isinstance(ex, RunnerClient) and ex.timeout_s == s.executor_wall_timeout_s + 15
+    assert ex.max_in_flight == s.runner_max_in_flight == 3
     monkeypatch.setattr(ce, "_executor", None)
     cfg.get_settings.cache_clear()
+
+
+def _blocking_post(started: threading.Event, release: threading.Event, calls: list):
+    def post(*a, **k):
+        calls.append(1)
+        started.set()
+        release.wait(5)
+        return type("R", (), {"raise_for_status": lambda s: None, "json": lambda s: {
+            "exit_code": 0, "stdout": "ok", "stderr": "", "duration_ms": 1}})()
+    return post
+
+
+def test_client_returns_busy_at_once_when_in_flight_limit_is_reached(monkeypatch):
+    client = RunnerClient("/nonexistent.sock", 5, max_in_flight=1)
+    started, release, calls = threading.Event(), threading.Event(), []
+    monkeypatch.setattr(client._client, "post", _blocking_post(started, release, calls))
+    results: list = []
+    t = threading.Thread(target=lambda: results.append(client.run("a")))
+    t.start()
+    assert started.wait(5)
+    t0 = time.monotonic()
+    r = client.run("b")
+    assert time.monotonic() - t0 < 0.5
+    assert r.unavailable and r.exit_code == -1 and r.stderr == "[sandbox] code runner busy"
+    assert len(calls) == 1  # the busy call made no HTTP request
+    release.set()
+    t.join(5)
+    assert results[0].stdout == "ok"
+    assert client.run("c").stdout == "ok"  # the slot was given back
+    assert len(calls) == 2
+
+
+def test_client_releases_in_flight_slot_after_an_error(monkeypatch):
+    import httpx
+
+    client = RunnerClient("/nonexistent.sock", 5, max_in_flight=1)
+    calls: list = []
+
+    def failing(*a, **k):
+        calls.append(1)
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(client._client, "post", failing)
+    assert client.run("a").stderr == "[sandbox] code runner unavailable"
+    assert client.run("b").stderr == "[sandbox] code runner unavailable"  # not "busy"
+    assert len(calls) == 2
+
+
+def test_client_releases_in_flight_slot_after_an_unexpected_error(monkeypatch):
+    client = RunnerClient("/nonexistent.sock", 5, max_in_flight=1)
+
+    def boom(*a, **k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(client._client, "post", boom)
+    with pytest.raises(RuntimeError):
+        client.run("a")
+    monkeypatch.setattr(client._client, "post", lambda *a, **k: (_ for _ in ()).throw(OSError("x")))
+    assert client.run("b").stderr == "[sandbox] code runner unavailable"
 
 
 def test_gate_turns_flags_off_when_local_not_allowed():

@@ -475,6 +475,34 @@ async def test_waiter_wakes_when_every_slot_is_held_back():
     assert second.json()["stderr"] == "[runner] restarting"
 
 
+async def test_waiter_past_the_queue_deadline_gets_busy_and_no_slot_is_lost():
+    tracker: dict = {}
+    app = create_app(_factory(delay_s=0.5, tracker=tracker), [61001], killer=lambda uid: 0, queue_wait_s=0.1)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://runner") as client:
+        first, second = await asyncio.gather(
+            client.post("/run", json={"code": "a"}), client.post("/run", json={"code": "b"})
+        )
+        busy = second.json()
+        assert second.status_code == 200 and busy["unavailable"] is True
+        assert busy["exit_code"] == -1 and busy["stderr"] == "[runner] busy" and busy["ok"] is False
+        assert first.json()["ok"] is True
+        assert (await client.get("/health")).json()["slots_free"] == 1  # the slot came back
+        assert (await client.post("/run", json={"code": "c"})).json()["ok"] is True
+    assert tracker["uids"] == [61001, 61001]  # the busy request never ran
+    assert app.state.should_exit is False
+
+
+async def test_waiter_that_gets_a_slot_before_the_deadline_runs_normally():
+    tracker: dict = {}
+    app = create_app(_factory(delay_s=0.1, tracker=tracker), [61001], killer=lambda uid: 0, queue_wait_s=3.0)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://runner") as client:
+        rs = await asyncio.gather(*(client.post("/run", json={"code": str(i)}) for i in range(2)))
+    assert all(r.json()["ok"] for r in rs)
+    assert len(tracker["uids"]) == 2
+
+
 def test_restart_after_max_age():
     app = create_app(_factory(), UIDS, max_age_s=0, killer=lambda uid: 0)
     assert app.state.ready_to_exit() is True
@@ -579,6 +607,7 @@ def test_main_builds_app_from_env_and_serves_the_socket(monkeypatch):
     monkeypatch.setenv("EXECUTOR_CPU_SECONDS", "5")
     monkeypatch.setenv("EXECUTOR_MEM_MB", "128")
     monkeypatch.setenv("RUNNER_SLOTS", "1")
+    monkeypatch.setenv("RUNNER_QUEUE_WAIT_S", "3")
     monkeypatch.setattr(runner_server.uvicorn, "Server", FakeServer)
     monkeypatch.setattr(runner_server, "bind_socket", lambda path, gid=1500: f"sock:{path}:{gid}")
     runner_server.main()
@@ -589,6 +618,8 @@ def test_main_builds_app_from_env_and_serves_the_socket(monkeypatch):
     ex = app.state.executor_factory(61001)
     assert (ex.wall_timeout_s, ex.cpu_seconds, ex.mem_bytes) == (7, 5, 128 * 1024 * 1024)
     assert (ex.sandbox_uid, ex.sandbox_gid) == (61001, 61001)
+    assert ex.max_procs == 48  # 2 slots x 48 plus runner headroom stays under compose pids_limit 128
+    assert app.state.queue_wait_s == 3.0
 
 
 def test_watch_stops_server_once_ready():

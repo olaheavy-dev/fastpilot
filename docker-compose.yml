@@ -43,6 +43,7 @@ services:
     environment:
       <<: *executor-limits
       RUNNER_SLOTS: "2"
+      RUNNER_QUEUE_WAIT_S: "8"  # a request waits this long for a free slot, then gets "[runner] busy"
     restart: always
     healthcheck:  # asks the runner's /health over its socket (no network here); stdlib only
       test:

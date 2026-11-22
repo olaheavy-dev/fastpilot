@@ -1,11 +1,11 @@
 """The runner's HTTP app, served on a Unix socket that our own code binds.
 
-``POST /run`` takes a free slot (or waits for one) and runs the code there with that slot's uid. Then,
-always: kill every process left behind by that uid (looped), delete that uid's files in ``/tmp`` and
-``/dev/shm`` as that uid, and give the slot back. If the kill or the clean-up fails, the slot is held
-back and the runner restarts (fail closed). After ``max_runs`` runs or ``max_age_s`` seconds, new
-requests get a "restarting" answer, the runs in flight finish, and the runner exits with code 0, so
-Docker's ``restart: always`` starts a clean container.
+``POST /run`` takes a free slot (or waits for one, up to ``queue_wait_s``, then answers "busy") and
+runs the code there with that slot's uid. Then, always: kill every process left behind by that uid
+(looped), delete that uid's files in ``/tmp`` and ``/dev/shm`` as that uid, and give the slot back. If
+the kill or the clean-up fails, the slot is held back and the runner restarts (fail closed). After
+``max_runs`` runs or ``max_age_s`` seconds, new requests get a "restarting" answer, the runs in flight
+finish, and the runner exits with code 0, so Docker's ``restart: always`` starts a clean container.
 """
 
 from __future__ import annotations
@@ -50,6 +50,13 @@ def _restarting() -> dict[str, Any]:
     return _result_json(ExecutionResult(-1, "", "[runner] restarting", 0, unavailable=True))
 
 
+def _busy() -> dict[str, Any]:
+    return _result_json(ExecutionResult(-1, "", "[runner] busy", 0, unavailable=True))
+
+
+_BUSY = object()  # ``_take_slot`` gave up waiting: no slot came free before the queue deadline
+
+
 def create_app(
     executor_factory: Callable[[int], Executor],
     uids: list[int],
@@ -57,8 +64,13 @@ def create_app(
     max_age_s: int = 21600,
     killer: Callable[[int], Any] = kill_uid_processes,
     cleaner: Callable[[int], Any] | None = None,
+    queue_wait_s: float = 8.0,
 ) -> FastAPI:
-    """Build the runner app. ``cleaner`` defaults to ``clean_uid_tmp`` (looked up at call time)."""
+    """Build the runner app. ``cleaner`` defaults to ``clean_uid_tmp`` (looked up at call time).
+
+    ``queue_wait_s`` caps how long a request waits for a free slot. After it, the request gets a
+    "busy" answer, so a job the backend has already given up on does not run later for nobody.
+    """
     app = FastAPI(title="FastPilot runner", docs_url=None, redoc_url=None, openapi_url=None)
     pool = SlotPool(uids)
     started = time.monotonic()
@@ -68,6 +80,7 @@ def create_app(
     app.state.in_flight = 0
     app.state.held_back: list[int] = []  # slots whose leftovers could not be killed: never reused
     app.state.should_exit = False
+    app.state.queue_wait_s = queue_wait_s
 
     def _check_restart() -> None:
         if app.state.runs >= max_runs or time.monotonic() - started >= max_age_s:
@@ -80,11 +93,16 @@ def create_app(
 
     app.state.ready_to_exit = ready_to_exit
 
-    async def _take_slot() -> int | None:
-        """A free slot uid, or ``None`` once the runner is restarting (also wakes requests that wait)."""
+    async def _take_slot() -> int | object | None:
+        """A free slot uid; ``None`` once the runner is restarting (also wakes requests that wait);
+        ``_BUSY`` once ``queue_wait_s`` has passed without a free slot."""
+        deadline = time.monotonic() + queue_wait_s
         while not app.state.should_exit:
+            left = deadline - time.monotonic()
+            if left <= 0:
+                return _BUSY
             try:
-                return await asyncio.wait_for(pool.acquire(), timeout=0.1)
+                return await asyncio.wait_for(pool.acquire(), timeout=min(0.1, left))
             except TimeoutError:
                 _check_restart()
         return None
@@ -112,6 +130,9 @@ def create_app(
         uid = await _take_slot()
         if uid is None:
             return _restarting()
+        if uid is _BUSY:
+            return _busy()
+        assert isinstance(uid, int)
         if app.state.should_exit:  # the restart rule fired while this request waited
             pool.release(uid)
             return _restarting()
@@ -194,13 +215,19 @@ def main() -> None:
     cpu = _env_int("EXECUTOR_CPU_SECONDS", 10)
     mem = _env_int("EXECUTOR_MEM_MB", 256)
     slots = max(1, min(_env_int("RUNNER_SLOTS", 2), len(SLOT_UIDS)))
+    queue_wait = _env_int("RUNNER_QUEUE_WAIT_S", 8)
 
     def factory(uid: int) -> SubprocessExecutor:
         return SubprocessExecutor(
-            wall_timeout_s=wall, cpu_seconds=cpu, mem_mb=mem, sandbox_uid=uid, sandbox_gid=uid
+            wall_timeout_s=wall,
+            cpu_seconds=cpu,
+            mem_mb=mem,
+            sandbox_uid=uid,
+            sandbox_gid=uid,
+            max_procs=48,  # 2 slots x 48 plus the runner's own processes stays under compose pids_limit 128
         )
 
-    app = create_app(factory, SLOT_UIDS[:slots])
+    app = create_app(factory, SLOT_UIDS[:slots], queue_wait_s=float(queue_wait))
     server = uvicorn.Server(uvicorn.Config(app, log_level="info", lifespan="off", timeout_graceful_shutdown=wall + 15))
     sock = bind_socket(SOCKET_PATH, gid=SOCKET_GID)
     logger.info("runner listening on unix socket %s with %d slot(s)", SOCKET_PATH, slots)

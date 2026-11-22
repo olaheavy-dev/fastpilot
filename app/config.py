@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     executor_mem_mb: int = 512
     executor_mode: Literal["local", "runner"] = "local"  # in-process subprocess or sidecar
     runner_socket: str = "/run/fastpilot/runner.sock"
+    runner_max_in_flight: int = 3  # runner slots + 1: more calls than this get "busy" at once
     # Fail closed: with mode "local" and this False, the Playground and Agent are switched off.
     allow_local_executor: bool = True
     playground_max_code_bytes: int = 10_240  # 10KB

@@ -7,6 +7,7 @@ It never raises. Any transport or decoding failure becomes an ``unavailable`` re
 from __future__ import annotations
 
 import logging
+import threading
 
 import httpx
 
@@ -15,21 +16,35 @@ from app.augmentations.code_executor import ExecutionResult
 logger = logging.getLogger(__name__)
 
 _UNAVAILABLE_MSG = "[sandbox] code runner unavailable"
+_BUSY_MSG = "[sandbox] code runner busy"
 
 
-def _unavailable() -> ExecutionResult:
-    return ExecutionResult(-1, "", _UNAVAILABLE_MSG, 0, unavailable=True)
+def _unavailable(msg: str = _UNAVAILABLE_MSG) -> ExecutionResult:
+    return ExecutionResult(-1, "", msg, 0, unavailable=True)
 
 
 class RunnerClient:
-    def __init__(self, socket_path: str, timeout_s: float):
+    def __init__(self, socket_path: str, timeout_s: float, max_in_flight: int = 3):
+        """``max_in_flight`` caps calls waiting on the runner (its slots + 1). A call over the cap
+        gets "busy" at once, so waiting calls cannot fill the thread pool that Chat also uses."""
         self.socket_path = socket_path
         self.timeout_s = timeout_s
+        self.max_in_flight = max_in_flight
+        self._in_flight = threading.BoundedSemaphore(max_in_flight)
         self._client = httpx.Client(
             transport=httpx.HTTPTransport(uds=socket_path), base_url="http://runner", timeout=timeout_s
         )
 
     def run(self, code: str) -> ExecutionResult:
+        if not self._in_flight.acquire(blocking=False):
+            logger.warning("Code runner call refused: %d calls already in flight", self.max_in_flight)
+            return _unavailable(_BUSY_MSG)
+        try:
+            return self._post(code)
+        finally:
+            self._in_flight.release()
+
+    def _post(self, code: str) -> ExecutionResult:
         try:
             resp = self._client.post("/run", json={"code": code})
             resp.raise_for_status()

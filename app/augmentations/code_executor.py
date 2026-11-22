@@ -407,7 +407,9 @@ def get_executor() -> Any:
         if s.executor_mode == "runner":
             from app.augmentations.runner_client import RunnerClient
 
-            _executor = RunnerClient(s.runner_socket, s.executor_wall_timeout_s + 10)
+            _executor = RunnerClient(
+                s.runner_socket, s.executor_wall_timeout_s + 15, max_in_flight=s.runner_max_in_flight
+            )
         else:
             _executor = SubprocessExecutor(
                 wall_timeout_s=s.executor_wall_timeout_s,
