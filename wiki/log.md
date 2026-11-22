@@ -40,6 +40,8 @@ The sandbox scan is a filter, not a boundary, so generated code now runs in a se
 
 ---
 
+- **Codex review fix (PR #19):** compose no longer sets `AGENT_ENABLED` / `PLAYGROUND_ENABLED` in `environment:` (it overrode a kill switch set in the shared env_file). New `tests/test_compose_config.py` guards this and the runner's no-env-file / no-network settings.
+
 ## 2026-11-22 — Sandbox allowlist + privilege drop; relaunch decisions
 
 A project review found the Railway demo offline (404), the free Qdrant Cloud cluster refusing

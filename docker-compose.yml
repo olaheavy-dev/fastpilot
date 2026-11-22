@@ -16,10 +16,9 @@ x-executor-limits: &executor-limits
   EXECUTOR_WALL_TIMEOUT_S: "15"
   EXECUTOR_CPU_SECONDS: "10"
   EXECUTOR_MEM_MB: "256"
-# Feature switches: the backend serves the features, the frontend shows the tabs.
-x-feature-flags: &feature-flags
-  AGENT_ENABLED: ${AGENT_ENABLED:-true}
-  PLAYGROUND_ENABLED: ${PLAYGROUND_ENABLED:-true}
+# Feature switches (AGENT_ENABLED / PLAYGROUND_ENABLED) are deliberately NOT set here: backend and
+# frontend both read them from the same env_file, and an `environment:` entry would override a kill
+# switch set there (Compose gives `environment` precedence over `env_file`).
 
 services:
   runner:
@@ -70,7 +69,7 @@ services:
       - path: ../.env
         required: false
     environment:
-      <<: [*executor-limits, *feature-flags]
+      <<: *executor-limits
       DEBUG: "true"
       EXECUTOR_MODE: runner
       ALLOW_LOCAL_EXECUTOR: "false"  # never run visitor code inside the backend
@@ -95,7 +94,6 @@ services:
       - path: ../.env
         required: false
     environment:
-      <<: *feature-flags
       API_BASE_URL: http://backend:8000
     depends_on:
       backend:

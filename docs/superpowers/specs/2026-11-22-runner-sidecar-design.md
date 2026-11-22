@@ -185,8 +185,9 @@ runner:
   reviewer asked for: production cannot accidentally run code in the backend.)
 - `/health` reports `executor: "runner" | "local"` and, in runner mode, whether the runner's `/health`
   answers.
-- The frontend keeps reading `AGENT_ENABLED` / `PLAYGROUND_ENABLED` from its own environment; compose sets
-  the same values for both services. If the backend's safety gate turns them off while the frontend still
+- The frontend keeps reading `AGENT_ENABLED` / `PLAYGROUND_ENABLED` from its own environment; both services
+  read them from the same env_file (changed after Codex review on PR #19: a compose `environment` default
+  would override a kill switch set in that file). If the backend's safety gate turns them off while the frontend still
   shows the tabs, visitors see the existing "disabled" messages. Syncing the frontend from `/health` is a
   possible later improvement, not part of this PR.
 

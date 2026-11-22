@@ -159,7 +159,7 @@ async def test_health_reports_executor_mode(): ...                           # "
 
 **Interfaces:**
 - Consumes: `runner.server:main` (Task 2), `EXECUTOR_MODE=runner` (Task 3).
-- Produces: image `ghcr.io/<owner>/fastpilot-runner` built with context `.` and `file: runner/Dockerfile`; it copies `app/__init__.py`, `app/augmentations/{__init__,code_executor,security}.py` and `runner/`; `CMD ["python", "-m", "runner.server"]`. Compose service `runner` exactly as in Global Constraints, volume `runner_sock`; backend gets `EXECUTOR_MODE=runner`, `ALLOW_LOCAL_EXECUTOR=false`, `runner_sock:/run/fastpilot`, `depends_on: runner`. `AGENT_ENABLED` and `PLAYGROUND_ENABLED` come from one YAML anchor shared by backend and frontend, so the two can't disagree.
+- Produces: image `ghcr.io/<owner>/fastpilot-runner` built with context `.` and `file: runner/Dockerfile`; it copies `app/__init__.py`, `app/augmentations/{__init__,code_executor,security}.py` and `runner/`; `CMD ["python", "-m", "runner.server"]`. Compose service `runner` exactly as in Global Constraints, volume `runner_sock`; backend gets `EXECUTOR_MODE=runner`, `ALLOW_LOCAL_EXECUTOR=false`, `runner_sock:/run/fastpilot`, `depends_on: runner`. `AGENT_ENABLED` and `PLAYGROUND_ENABLED` are left to the shared env_file (changed after Codex review: a compose `environment` default would override a kill switch set there).
 
 - [ ] **Step 1: Write the integration tests** (`pytestmark = pytest.mark.integration`; skip when `docker` is not on PATH; bring up `runner backend` with `docker compose up -d --build`)
 
