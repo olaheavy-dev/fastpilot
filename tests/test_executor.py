@@ -291,3 +291,18 @@ def test_timeout_returns_even_if_escaped_grandchild_holds_pipes(monkeypatch):
     result = ex.run(code)
     assert result.timed_out
     assert result.duration_ms < 8_000
+
+
+def test_launch_failure_returns_result_not_500(monkeypatch):
+    """Codex review (PR #17): if `nobody` can't execute the interpreter (root-only pyenv/uv), Popen
+    raises PermissionError. The executor must return a sandbox result, never raise into the endpoint."""
+    from app.augmentations import code_executor as ce
+
+    def boom(*a, **k):
+        raise PermissionError(13, "Permission denied", sys.executable)
+
+    monkeypatch.setattr(ce.subprocess, "Popen", boom)
+    result = ce.SubprocessExecutor(wall_timeout_s=2).run("print(1)\n")
+    assert result.unavailable is True
+    assert result.blocked is False
+    assert not result.ok

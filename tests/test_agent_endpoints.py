@@ -209,3 +209,11 @@ async def test_agent_disabled_returns_404_and_runs_nothing():
         r = await client.post("/agent/stream", json={"task": "Write an endpoint", "session_id": "s"})
     assert r.status_code == 404
     assert "disabled" in r.json()["detail"]
+
+
+async def test_execute_unavailable_sandbox_is_a_guard_not_500():
+    ex = FakeExecutor(ExecutionResult(-1, "", "[sandbox] could not start", 3, unavailable=True))
+    async with build(executor=ex) as client:
+        r = await client.post("/execute", json={"code": "print(1)", "session_id": "s"})
+    assert r.status_code == 200
+    assert r.json()["guard"] == "unavailable"

@@ -94,7 +94,7 @@ class ExecuteResult(BaseModel):
     stdout: str = ""
     stderr: str = ""
     duration_ms: int = 0
-    guard: Optional[str] = None  # "oversize" | "rate_limit" | "denylist" | None
+    guard: Optional[str] = None  # "oversize" | "rate_limit" | "denylist" | "unavailable" | None
 
 
 class FixRequest(BaseModel):

@@ -638,6 +638,12 @@ def create_app() -> FastAPI:
                 ),
             )
         result = await asyncio.to_thread(http.app.state.executor.run, request.code)
+        if result.unavailable:
+            return ExecuteResult(
+                guard="unavailable",
+                exit_code=result.exit_code,
+                stderr="The code sandbox isn't available right now. Please try again in a minute.",
+            )
         if result.blocked:
             return ExecuteResult(
                 guard="denylist",

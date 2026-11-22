@@ -194,6 +194,7 @@ class ExecutionResult:
     timed_out: bool = False
     blocked: bool = False
     block_reason: str | None = None
+    unavailable: bool = False  # the sandbox itself couldn't run (launch failure / runner down) — not the code's fault
 
     @property
     def ok(self) -> bool:
@@ -281,6 +282,25 @@ class SubprocessExecutor:
         self.max_file_bytes = max_file_bytes
         self.max_procs = max_procs
 
+    def _spawn(self, tmp: str, drop: bool) -> subprocess.Popen:
+        return subprocess.Popen(
+            [sys.executable, "-I", "-W", _SUPPRESS_WARNING, "main.py"],
+            cwd=tmp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=_scrubbed_env(),
+            start_new_session=True,  # own process group so a timeout can killpg the whole tree
+            # Run as `nobody` when we can (server is root): the server's /proc/<pid>/environ is
+            # then unreadable. Done by Popen in C, which is safe in a threaded server.
+            user=SANDBOX_UID if drop else None,
+            group=SANDBOX_GID if drop else None,
+            extra_groups=[] if drop else None,
+            preexec_fn=_limits(
+                self.cpu_seconds, self.mem_bytes, self.max_file_bytes, self.max_procs if drop else None
+            ),
+        )
+
     def run(self, code: str) -> ExecutionResult:
         ok, reason = scan_code(code)
         if not ok:
@@ -297,23 +317,17 @@ class SubprocessExecutor:
                 for path in (tmp, script):
                     os.chown(path, SANDBOX_UID, SANDBOX_GID)
             start = time.monotonic()
-            proc = subprocess.Popen(
-                [sys.executable, "-I", "-W", _SUPPRESS_WARNING, "main.py"],
-                cwd=tmp,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                env=_scrubbed_env(),
-                start_new_session=True,  # own process group so a timeout can killpg the whole tree
-                # Run as `nobody` when we can (server is root): the server's /proc/<pid>/environ is
-                # then unreadable. Done by Popen in C, which is safe in a threaded server.
-                user=SANDBOX_UID if drop else None,
-                group=SANDBOX_GID if drop else None,
-                extra_groups=[] if drop else None,
-                preexec_fn=_limits(
-                    self.cpu_seconds, self.mem_bytes, self.max_file_bytes, self.max_procs if drop else None
-                ),
-            )
+            try:
+                proc = self._spawn(tmp, drop)
+            except OSError as exc:  # e.g. the interpreter isn't readable by `nobody` (root-only pyenv/uv)
+                logger.error("Sandbox could not start the child process: %s", exc)
+                return ExecutionResult(
+                    exit_code=-1,
+                    stdout="",
+                    stderr="[sandbox] could not start the code runner process",
+                    duration_ms=int((time.monotonic() - start) * 1000),
+                    unavailable=True,
+                )
             timed_out = False
             try:
                 stdout, stderr = proc.communicate(timeout=self.wall_timeout_s)
