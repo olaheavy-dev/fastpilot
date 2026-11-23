@@ -19,8 +19,18 @@ socket. The runner has `network_mode: none`, so nothing can reach it over a netw
 if the runner is not used. Run everything locally with `docker compose up backend frontend --build`
 (the runner starts as a dependency).
 
-Do not make Agent and Playground public until the VPS move is done and issue #12 (the rate limit is
-keyed on a session id the client chooses) is fixed.
+Do not make Agent and Playground public until the VPS move is done.
+
+**Rate limits (issue #12).** Limits count per visitor address: Chat 15 questions a day, Agent 2 runs a
+minute and 5 a day, Playground 3 runs a minute and 30 a day (`/execute` and `/fix` together). The
+browser only talks to Streamlit, so the frontend forwards the visitor's address to the backend. For
+that to work on a public host:
+- Set the same random `FRONTEND_PROXY_KEY` on the backend and the frontend (`openssl rand -hex 32`).
+  Without it, the backend ignores the forwarded address and all visitors share one limit.
+- Make the frontend reachable only through Cloudflare (for example, Cloudflare edge mode or a tunnel,
+  with no open port). The frontend reads the visitor's address from `CF-Connecting-IP`, and anyone who
+  reaches Streamlit directly can set that header to any value.
+- Keep the backend off the public internet. The shared key protects it if a port opens by mistake.
 
 ## Historical: Railway (offline)
 

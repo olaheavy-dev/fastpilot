@@ -69,9 +69,9 @@ Qdrant is unavailable. The agent runs generated code in a separate **runner** co
 read-only filesystem and dropped Linux capabilities. The backend reaches it over a Unix socket, and
 each run gets its own unprivileged user, CPU/memory/process/time limits and a clean-up. That runner is
 the security boundary. The import allowlist in front of it is a filter, not a boundary. Escaped code
-can still use the runner's CPU and memory, within its limits. Agent and Playground should not go
-public until the move to the VPS is done and issue #12 (the rate limit uses a session id the client
-chooses) is fixed. Every production service is an explicit **add / skip decision**,
+can still use the runner's CPU and memory, within its limits. Chat, Agent and Playground have
+rate limits per visitor address (see [`DEPLOY.md`](DEPLOY.md)). Agent and Playground should not go
+public until the move to the VPS is done. Every production service is an explicit **add / skip decision**,
 documented in [`docs/production-decisions.md`](docs/production-decisions.md).
 
 **Tech:** FastAPI · Streamlit · Qdrant Cloud · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5

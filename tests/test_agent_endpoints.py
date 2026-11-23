@@ -28,9 +28,11 @@ class FakeExecutor:
 
 
 @asynccontextmanager
-async def build(*, executor=None, playground=True, agent=True, pipeline=None, per_minute=3):
+async def build(
+    *, executor=None, playground=True, agent=True, pipeline=None, per_minute=3, per_day=30, agent_per_min=2,
+    agent_per_day=5, proxy_key="",
+):
     import app.config as cfg
-    from app.augmentations.rate_limit import RateLimiter
     from app.services import reset_services, set_services
     from app.services.conversation import ConversationService
 
@@ -39,18 +41,22 @@ async def build(*, executor=None, playground=True, agent=True, pipeline=None, pe
     monkey.playground_enabled = playground
     monkey.agent_enabled = agent
     monkey.playground_rate_per_min = per_minute
+    monkey.playground_rate_per_day = per_day
+    monkey.agent_rate_per_min = agent_per_min
+    monkey.agent_rate_per_day = agent_per_day
+    monkey.frontend_proxy_key = proxy_key
 
     reset_services()
     conv = ConversationService(redis_client=fakeredis.FakeRedis(decode_responses=True), rewriter=FakeChatGenerator())
     set_services(rag=pipeline or FakePipeline(), cache=FakeCache(), conversation=conv, router=FakeRouter())
-    from app.main import create_app
+    from app.main import build_rate_limiters, create_app
 
     app = create_app()
-    # Inject the fake executor + a fresh limiter after lifespan builds defaults.
+    # Inject the fake executor + fresh in-memory limiters after lifespan builds defaults.
     async with LifespanManager(app):
         if executor is not None:
             app.state.executor = executor
-        app.state.rate_limiter = RateLimiter(per_minute=per_minute)
+        build_rate_limiters(app, monkey)
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
             yield client
     reset_services()
@@ -89,13 +95,42 @@ async def test_execute_denylist_guarded():
 async def test_execute_rate_limited_after_quota():
     ex = FakeExecutor(ExecutionResult(0, "ok", "", 10))
     async with build(executor=ex, per_minute=2) as client:
-        for _ in range(2):
-            assert (await client.post("/execute", json={"code": "print(1)", "session_id": "rl"})).json()[
-                "guard"
-            ] is None
-        third = await client.post("/execute", json={"code": "print(1)", "session_id": "rl"})
+        for i in range(2):
+            r = await client.post("/execute", json={"code": "print(1)", "session_id": f"s{i}"})
+            assert r.json()["guard"] is None
+        # A fresh session id does not reset the count (issue #12).
+        third = await client.post("/execute", json={"code": "print(1)", "session_id": "brand-new"})
     assert third.json()["guard"] == "rate_limit"
-    assert "Easy there" in third.json()["stderr"]
+    assert "Easy there — 2 runs a minute" in third.json()["stderr"]
+    assert len(ex.calls) == 2
+
+
+async def test_execute_daily_cap_message():
+    ex = FakeExecutor(ExecutionResult(0, "ok", "", 10))
+    async with build(executor=ex, per_minute=0, per_day=1) as client:
+        assert (await client.post("/execute", json={"code": "print(1)"})).json()["guard"] is None
+        r = await client.post("/execute", json={"code": "print(1)"})
+    assert r.json()["guard"] == "rate_limit"
+    assert "today's 1 Playground runs" in r.json()["stderr"]
+    assert "midnight UTC" in r.json()["stderr"]
+
+
+async def test_forwarded_ips_get_separate_counts_only_with_the_key():
+    ex = FakeExecutor(ExecutionResult(0, "ok", "", 10))
+
+    def hdrs(ip, key):
+        return {"X-FastPilot-Client-IP": ip, "X-FastPilot-Proxy-Key": key}
+
+    async with build(executor=ex, per_minute=1, proxy_key="k") as client:
+        a = await client.post("/execute", json={"code": "1"}, headers=hdrs("203.0.113.1", "k"))
+        b = await client.post("/execute", json={"code": "1"}, headers=hdrs("203.0.113.2", "k"))
+        a2 = await client.post("/execute", json={"code": "1"}, headers=hdrs("203.0.113.1", "k"))
+        # Wrong key: the forwarded address is ignored and the caller's own address is used.
+        f1 = await client.post("/execute", json={"code": "1"}, headers=hdrs("198.51.100.1", "bad"))
+        f2 = await client.post("/execute", json={"code": "1"}, headers=hdrs("198.51.100.2", "bad"))
+    assert a.json()["guard"] is None and b.json()["guard"] is None
+    assert a2.json()["guard"] == "rate_limit"
+    assert f1.json()["guard"] is None and f2.json()["guard"] == "rate_limit"
 
 
 async def test_execute_disabled_404():
@@ -137,6 +172,20 @@ async def test_agent_stream_success_events():
     assert "agent_step" in names and "code" in names and "exec_result" in names
     done = events[-1][1]
     assert done["success"] is True and done["msg_id"].startswith("msg_")
+
+
+async def test_agent_stream_rate_limited_runs_nothing():
+    pipe = FakePipeline()
+    pipe.generate = _scripted_generate(["plan", "```python\nx = 1\n```"] * 3)
+    ex = FakeExecutor(ExecutionResult(0, "ok", "", 5))
+    async with build(executor=ex, pipeline=pipe, agent_per_min=1) as client:
+        await _collect_sse(client, "/agent/stream", {"task": "build an endpoint"})
+        runs_before = len(ex.calls)
+        events = await _collect_sse(client, "/agent/stream", {"task": "build another", "session_id": "new"})
+    assert [e for e, _ in events] == ["session", "token", "done"]
+    assert "1 Agent runs a minute" in events[1][1]["token"]
+    assert events[-1][1]["rate_limited"] is True and events[-1][1]["success"] is False
+    assert len(ex.calls) == runs_before  # nothing ran
 
 
 async def test_agent_stream_refuses_injection():

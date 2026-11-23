@@ -223,10 +223,12 @@ async def build_client(*, rag=None, cache=None, conversation=None, router=None, 
     )
     set_services(rag=rag or FakePipeline(), cache=cache, conversation=conversation, router=router or FakeRouter())
 
-    from app.main import create_app
+    from app.config import get_settings
+    from app.main import build_rate_limiters, create_app
 
     app = create_app()
     async with LifespanManager(app):
+        build_rate_limiters(app, get_settings())  # fresh in-memory counts per test, no shared state
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
             client.fake_cache = cache  # exposed for assertions
             client.fake_conversation = conversation

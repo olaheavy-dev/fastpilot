@@ -31,7 +31,8 @@
   dropped capabilities, two uid slots) that runs the code; the backend fails closed if it is down.
   ([[component-architecture]])
 - **Kill switches** — `AGENT_ENABLED` and `PLAYGROUND_ENABLED` (backend 404 + frontend hides the mode).
-- **Rate limiting** — per-session Playground limiter (3/min).
+- **Rate limiting** — per visitor address (issue #12): Chat 15/day, Agent 2/min + 5/day, Playground
+  3/min + 30/day. ([[component-architecture]])
 - **Graceful degradation** — every service degrades; `/health` reports truth.
 - **Observability** — Opik tracing, prompt versioning/registry, feedback scores, online-eval rule.
 
@@ -64,7 +65,7 @@ Tracked here (and as plans in [[plans/README]] when picked up):
 |---|---|
 | **Live deploy + public URL** | Railway deploy went offline (Nov 2026); relaunch on the founder's VPS with self-hosted Qdrant + Redis is the next step. |
 | **Demo video / hero GIF** | Recorded against the deployed URL; placeholders marked in `README.md`. |
-| **Agent and Playground public** | Needs the VPS move (after infra PR #85) and a fix for issue #12 (the rate limit is keyed on a session id the client chooses). The runner sidecar itself is built; it is not yet running on a public host. |
+| **Agent and Playground public** | Needs the VPS move (after infra PR #85), with `FRONTEND_PROXY_KEY` set and the frontend reachable only through Cloudflare (see `DEPLOY.md`). Issue #12 (rate limit) is fixed. The runner sidecar itself is built; it is not yet running on a public host. |
 | **Playground keystroke autocomplete** | Streamlit rerun + iframe latency; UX nicety. |
 | **Broader multi-user dogfooding** | Current evidence is single-user (the builder); logging path is proven. |
 
@@ -72,7 +73,7 @@ Tracked here (and as plans in [[plans/README]] when picked up):
 - **The sandbox scan is not a security boundary** — confirmed escapes reach a shell, files and the
   network; one (run-time strings evaluated as annotations) cannot be closed by any static scan.
   The boundary is the runner sidecar. Escaped code can still use the runner's CPU and memory, within
-  its limits. Agent and Playground should not go public until the VPS move and issue #12 are done.
+  its limits. Agent and Playground should not go public until the VPS move is done.
   ([[component-architecture]])
 - **Cache is conservative by design** — threshold 0.16 favours zero wrong-answer serving over
   hit-rate; the paraphrase/near-miss embedding bands overlap.

@@ -161,14 +161,20 @@ flowchart LR
   falling back to local execution. Settings: `EXECUTOR_MODE` (`local` | `runner`), `RUNNER_SOCKET`,
   `RUNNER_MAX_IN_FLIGHT`, `ALLOW_LOCAL_EXECUTOR`. Client timeout: `EXECUTOR_WALL_TIMEOUT_S` + 15 s. `/health` shows `executor` and, in runner mode, `components.code_runner`.
 - **What it does not do:** escaped code can still use the runner's CPU and memory, within the limits
-  above. The `/execute` rate limit is keyed on a session id the client chooses (issue #12), so Agent
-  and Playground should not go public until the VPS move is done and that issue is fixed.
+  above. Agent and Playground should not go public until the VPS move is done.
 
 ### Security + rate limit
 - `security.py` — `InputGuard` (regex prompt-injection detector, deliberately narrow to
   avoid false refusals) and `OutputValidator` (PII redaction). Deterministic, stdlib-only.
-- `rate_limit.py` — per-session Playground limiter (3 runs/min), Redis-backed with an
-  in-memory fallback.
+- `rate_limit.py` — fixed-window limiter with several windows per feature (minute + day), Redis-backed.
+  On a Redis error it counts in memory instead of letting calls through. Limits: Chat 15/day, Agent
+  2/min + 5/day, Playground 3/min + 30/day (`/execute` and `/fix` together); 0 switches one off.
+- `client_identity.py` — the rate-limit key is the visitor's address, never the `session_id` the
+  client sends (issue #12). The browser only talks to Streamlit, so `frontend/visitor.py` reads
+  `CF-Connecting-IP` and `api_client` forwards it in `X-FastPilot-Client-IP` with the shared
+  `FRONTEND_PROXY_KEY`. The backend believes it only when the key matches; otherwise it uses the
+  connection's address. IPv6 is grouped by /64. Over a limit, Chat and Agent answer with a friendly
+  message and `done{rate_limited: true}`; Playground returns `guard: "rate_limit"`.
 
 ## Prompts (`app/prompts/`)
 - `templates.py` — prompt text only (single source of truth; line-length lint disabled here).

@@ -20,6 +20,10 @@ import playground_view
 import requests
 import streamlit as st
 import styles
+import visitor
+
+# Every backend call forwards the visitor's address for the rate limits (issue #12).
+api_client.set_client_ip_provider(visitor.visitor_ip)
 
 MODES = ["💬 Chat", "▶ Agent", "⌨ Playground"]
 _MODE_LABEL = {
