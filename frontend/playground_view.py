@@ -166,6 +166,8 @@ def render() -> None:
             st.rerun()
 
     st.markdown(
-        '<div class="fp-disclaimer">Code runs in an isolated sandbox — 15s limit, no network.</div>',
+        # Privacy note (founder, 23 Nov 2026: "Add to Agent + Playground lines").
+        '<div class="fp-disclaimer">Code runs in an isolated sandbox — 15s limit, no network. '
+        "Code and error messages you send to Fix with AI are recorded with Opik to improve FastPilot.</div>",
         unsafe_allow_html=True,
     )

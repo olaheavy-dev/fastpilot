@@ -195,6 +195,23 @@ def test_agent_mode_runs_and_stores_run(monkeypatch):
     assert "validates input" in run["answer"]
 
 
+def test_agent_and_playground_pages_show_the_opik_privacy_note(monkeypatch):
+    """Founder, 23 Nov 2026: Agent and Playground text also goes to Opik, so both pages say so."""
+    import playground_view
+
+    monkeypatch.setattr(playground_view, "_HAS_MONACO", False)
+    expected = {
+        "▶ Agent": "Tasks, code and answers are recorded with Opik to improve FastPilot.",
+        "⌨ Playground": "Code and error messages you send to Fix with AI are recorded with Opik to improve FastPilot.",
+    }
+    for mode, sentence in expected.items():
+        at = AppTest.from_file(_APP, default_timeout=30)
+        at.session_state["mode"] = mode
+        at.run()
+        assert not at.exception
+        assert sentence in " ".join(m.value for m in at.markdown), mode
+
+
 def test_playground_fallback_editor_runs(monkeypatch):
     import api_client
     import playground_view

@@ -54,10 +54,10 @@ run code, which means leaving the docs and debugging alone.
 ## Architecture
 
 ```
-Streamlit frontend ──HTTP/SSE──> FastAPI backend ──> Qdrant Cloud (hybrid retrieval)
+Streamlit frontend ──HTTP/SSE──> FastAPI backend ──> Qdrant (hybrid retrieval)
                                           │            Voyage (embed + rerank-2.5)
                                           │            Gemini 2.5 Flash (generate)
-                                          ├──> Redis Cloud (conversation memory + semantic cache)
+                                          ├──> Redis 8 (conversation memory + semantic cache)
                                           ├──> Opik (tracing, prompt versioning, feedback)
                                           └──Unix socket──> runner (runs generated code:
                                                              no network, no keys, read-only)
@@ -74,8 +74,8 @@ rate limits per visitor address (see [`DEPLOY.md`](DEPLOY.md)). Agent and Playgr
 public until the move to the VPS is done. Every production service is an explicit **add / skip decision**,
 documented in [`docs/production-decisions.md`](docs/production-decisions.md).
 
-**Tech:** FastAPI · Streamlit · Qdrant Cloud · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5
-Flash · Redis Cloud (RediSearch) · Opik/Comet · Docker (self-hosted VPS) · `uv`.
+**Tech:** FastAPI · Streamlit · Qdrant · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5
+Flash · Redis 8 (search) · Opik/Comet · Docker (self-hosted VPS) · `uv`.
 
 ---
 
@@ -147,13 +147,13 @@ cd frontend && uv run streamlit run app.py
 
 | Service | Vars | Where |
 |---|---|---|
-| Qdrant Cloud | `QDRANT_URL`, `QDRANT_API_KEY` | https://cloud.qdrant.io |
+| Qdrant | `QDRANT_URL`, `QDRANT_API_KEY` | self-hosted (production: `deploy/`), or https://cloud.qdrant.io |
 | Voyage AI | `VOYAGE_API_KEY` | https://dash.voyageai.com |
 | Google Gemini | `GOOGLE_API_KEY` | https://aistudio.google.com/apikey |
-| Redis Cloud | `REDIS_HOST/PORT/PASSWORD` | https://redis.io/cloud — **enable "Search & Query"** |
+| Redis (with search) | `REDIS_HOST/PORT/PASSWORD/SSL` | Redis 8 self-hosted (production: `deploy/`), or https://redis.io/cloud with "Search & Query" |
 | Opik | `OPIK_API_KEY`, `OPIK_WORKSPACE` | https://www.comet.com → Opik |
 
-Deploying your own copy? See [`DEPLOY.md`](DEPLOY.md) (three services: backend, frontend, runner; the Railway steps there are historical).
+Deploying your own copy? See [`DEPLOY.md`](DEPLOY.md) (production: five services from `deploy/docker-compose.prod.yml`, backend, frontend, runner, Qdrant and Redis; the Railway steps there are historical).
 
 ---
 

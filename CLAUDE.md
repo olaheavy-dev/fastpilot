@@ -6,7 +6,8 @@ in [`wiki/`](wiki/index.md) before substantial work — start with `wiki/onboard
 ## Project at a glance
 - Production **RAG** learning companion for FastAPI: Chat (understand) · Agent (watch) ·
   Playground (practice). Backend = FastAPI; frontend = Streamlit.
-- Stack: Qdrant Cloud · Voyage (embed + rerank-2.5) · Gemini 2.5 Flash · Redis Cloud · Opik.
+- Stack: Qdrant · Voyage (embed + rerank-2.5) · Gemini 2.5 Flash · Redis 8 · Opik. Qdrant and Redis are
+  self-hosted on the VPS (`deploy/docker-compose.prod.yml`); the Cloud plans lapsed in Nov 2026.
 - See `wiki/overview.md` for architecture, `wiki/component-architecture.md` for the modules.
 
 ## Conventions

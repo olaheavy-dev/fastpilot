@@ -52,7 +52,7 @@ services:
       <<: *executor-limits
       RUNNER_SLOTS: "2"
       RUNNER_QUEUE_WAIT_S: "8"
-    restart: always
+    restart: unless-stopped  # like the others: after the yield rule's `stop`, a reboot must not bring it back alone
     logging: *logging
     healthcheck:
       test:
@@ -64,6 +64,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+      start_interval: 2s
 
   backend:
     image: ghcr.io/olaheavy-dev/fastpilot-backend:__FASTPILOT_TAG__
@@ -77,6 +78,7 @@ services:
     volumes:
       - runner_sock:/run/fastpilot
     networks: [fp_data, fp_app]
+    cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     mem_limit: 384m
     pids_limit: 256
@@ -95,6 +97,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+      start_interval: 2s
 
   frontend:
     image: ghcr.io/olaheavy-dev/fastpilot-frontend:__FASTPILOT_TAG__
@@ -102,6 +105,7 @@ services:
     env_file:
       - ./frontend.env
     networks: [fp_app, caddy_net]
+    cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     mem_limit: 256m
     pids_limit: 128
@@ -110,6 +114,13 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+      start_interval: 2s
 
   qdrant:
     image: qdrant/qdrant:v1.18.0@sha256:b3063c673f3973877c038eeecc392bad5011f072ee7892b56c9a8e204a3bdea9
@@ -132,6 +143,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+      start_interval: 2s
 
   redis:
     image: redis:8.4@sha256:319f54e668c14f68cee51d1fdf9dba699deecac048fc0e52962433a3ef5562c0
@@ -148,12 +160,15 @@ services:
     pids_limit: 64
     restart: unless-stopped
     logging: *logging
-    healthcheck:  # NOAUTH also proves the server answers; keeps the password out of the command
-      test: ["CMD-SHELL", "redis-cli ping 2>&1 | grep -q -E 'PONG|NOAUTH'"]
+    healthcheck:  # logs in with the password from the config file; it never appears on a command line
+      test:
+        - CMD-SHELL
+        - REDISCLI_AUTH="$$(awk '$$1=="requirepass" {print $$2}' /usr/local/etc/redis/redis.conf)" redis-cli ping | grep -q PONG
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s
+      start_interval: 2s
 
 networks:
   fp_data:

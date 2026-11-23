@@ -36,7 +36,7 @@ NEW_COLLECTION = "rag_accelerator_capstone_final"
 # The course corpus and the week-3 indexing code live in the capstone repository, next to
 # which FastPilot was first checked out. FASTPILOT_CORPUS_ROOT points at that repository when
 # FastPilot lives elsewhere (e.g. ~/source/code/rag/rag-accelerator-capstone).
-REPO_ROOT = Path(os.environ.get("FASTPILOT_CORPUS_ROOT") or Path(__file__).resolve().parent.parent.parent)
+REPO_ROOT = Path(os.environ.get("FASTPILOT_CORPUS_ROOT") or Path(__file__).resolve().parent.parent.parent).expanduser()
 W3_INDEXING = REPO_ROOT / "week-3" / "scripts" / "indexing"
 W3_SCRIPTS = REPO_ROOT / "week-3" / "scripts"
 W1BC_SCRIPTS = REPO_ROOT / "week-1-bettercorpus" / "scripts"

@@ -1,11 +1,12 @@
-# Deploying FastPilot to Railway
+# Deploying FastPilot
 
-> **Status 2026-11-22:** Railway is offline. FastPilot is moving to the founder's VPS after infra PR #85.
-> The Railway sections below are **historical**. Do not use them for a new deployment.
+> **Status 2026-11-23:** production moves to the founder's VPS through infra Phase 22: the stack is
+> `deploy/docker-compose.prod.yml` (see "Production on the VPS" below). Railway is offline, and the
+> Railway sections below are **historical**. Do not use them for a new deployment.
 
 ## Services
 
-FastPilot now runs as **three services**:
+FastPilot's own code runs as **three services** (production adds Qdrant and Redis, see below):
 
 | Service | Image | Role |
 |---|---|---|
