@@ -1,0 +1,9 @@
+# Redis 8 (production). Copy to redis.conf, set the password, never commit.
+# On the server the helper writes it mode 600, owned by the image's redis user (uid 999).
+requirepass CHANGE_ME           # the same value as REDIS_PASSWORD in backend.env
+maxmemory 48mb                  # below the container's 64m cap
+maxmemory-policy noeviction     # it holds the rate-limit counters: never evict them; when full,
+                                # writes fail and the limiter falls back to its in-memory counter
+save ""                         # rebuildable by decision: no snapshots
+appendonly no
+protected-mode yes

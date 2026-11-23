@@ -1,0 +1,167 @@
+# FastPilot production stack (infra Phase 22). Deployed by the infra repo's deploy-fastpilot.sh,
+# which checks this file against an allow-list before every deploy. Change both together.
+#
+# Rules this file keeps (and the allow-list enforces):
+# - No published ports anywhere. Visitors reach the frontend only through Caddy on caddy_net,
+#   behind Cloudflare. The backend, Qdrant and Redis are never reachable from outside.
+# - Images pinned: FastPilot images by a sha-<commit> tag (the helper replaces __FASTPILOT_TAG__
+#   and refuses a file that still contains it); Qdrant and Redis by version and digest.
+# - A hard memory cap on every service. Founder's budget (23 Nov 2026): the caps add up to at
+#   most 1.75 GB; here 384 + 256 + 768 + 256 + 64 = 1,728 MB.
+# - One env file per service, so the internet-facing frontend holds no API keys. No ${...} in
+#   this file: the helper renders it with `docker compose config --no-env-resolution`, so no
+#   secret is ever written into the deployed file.
+# - No Watchtower labels: production updates go through the helper with a new tag.
+#
+# Local measuring on the Mac uses deploy/docker-compose.local.yml on top of this file.
+
+name: fastpilot-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+# Sandbox limits, identical for the runner (which enforces them) and the backend (which sizes its
+# client timeout from them).
+x-executor-limits: &executor-limits
+  EXECUTOR_WALL_TIMEOUT_S: "15"
+  EXECUTOR_CPU_SECONDS: "10"
+  EXECUTOR_MEM_MB: "256"
+
+services:
+  runner:
+    image: ghcr.io/olaheavy-dev/fastpilot-runner:__FASTPILOT_TAG__
+    container_name: fastpilot-prod-runner
+    network_mode: none
+    read_only: true
+    init: true  # reaps orphaned processes left by sandboxed code
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /dev/shm:size=8m,mode=1777
+    volumes:
+      - runner_sock:/run/fastpilot
+    cap_drop: [ALL]
+    cap_add: [SETUID, SETGID, CHOWN, KILL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m  # 2 slots x 256 MB per visitor process, plus the runner itself
+    pids_limit: 128
+    # Never an env file, never a key: escaped code must find nothing worth stealing.
+    environment:
+      <<: *executor-limits
+      RUNNER_SLOTS: "2"
+      RUNNER_QUEUE_WAIT_S: "8"
+    restart: always
+    logging: *logging
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket,sys; s=socket.socket(socket.AF_UNIX); s.settimeout(3); s.connect('/run/fastpilot/runner.sock'); s.sendall(b'GET /health HTTP/1.0\\r\\n\\r\\n'); sys.exit(0 if b' 200 ' in s.recv(64) else 1)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend:
+    image: ghcr.io/olaheavy-dev/fastpilot-backend:__FASTPILOT_TAG__
+    container_name: fastpilot-prod-backend
+    env_file:
+      - ./backend.env
+    environment:
+      <<: *executor-limits
+      EXECUTOR_MODE: runner
+      ALLOW_LOCAL_EXECUTOR: "false"
+    volumes:
+      - runner_sock:/run/fastpilot
+    networks: [fp_data, fp_app]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    pids_limit: 256
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      runner:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    image: ghcr.io/olaheavy-dev/fastpilot-frontend:__FASTPILOT_TAG__
+    container_name: fastpilot-prod-frontend
+    env_file:
+      - ./frontend.env
+    networks: [fp_app, caddy_net]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 128
+    restart: unless-stopped
+    logging: *logging
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  qdrant:
+    image: qdrant/qdrant:v1.18.0@sha256:b3063c673f3973877c038eeecc392bad5011f072ee7892b56c9a8e204a3bdea9
+    container_name: fastpilot-prod-qdrant
+    env_file:
+      - ./qdrant.env  # QDRANT__SERVICE__API_KEY only
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks: [fp_data]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 256
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:  # the image has no curl; a TCP connect to the HTTP port is enough
+      test: ["CMD", "bash", "-c", ":> /dev/tcp/127.0.0.1/6333"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:8.4@sha256:319f54e668c14f68cee51d1fdf9dba699deecac048fc0e52962433a3ef5562c0
+    container_name: fastpilot-prod-redis
+    # The standard Redis 8 image ignores REDIS_ARGS, so settings and the password live in a
+    # config file (requirepass, maxmemory, maxmemory-policy noeviction, no persistence), written
+    # on the server by the helper (mode 600, owned by the image's redis user) and never committed.
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks: [fp_data]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 64m
+    pids_limit: 64
+    restart: unless-stopped
+    logging: *logging
+    healthcheck:  # NOAUTH also proves the server answers; keeps the password out of the command
+      test: ["CMD-SHELL", "redis-cli ping 2>&1 | grep -q -E 'PONG|NOAUTH'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  fp_data:
+    internal: true  # backend, Qdrant and Redis only; no way out to the internet
+  fp_app: {}  # backend and frontend; the backend needs outbound HTTPS to Gemini, Voyage and Opik
+  caddy_net:
+    external: true  # the frontend only
+
+volumes:
+  runner_sock: {}
+  qdrant_storage: {}
