@@ -12,6 +12,11 @@ While measuring memory for infra Phase 22a, every Chat question in a freshly bui
 - **CI:** installs uv 0.13.7 and runs `uv sync --frozen --all-extras`, then `uv run ruff`, the constraints check and `uv run pytest`: the same versions as local work and the images. The `redis<8.2` stopgap is gone (the lock pins redis 8.0.0 and fakeredis 2.36.2).
 - **Updating a dependency now:** the five steps in [[coding-conventions]] (pyproject, the image's requirements.txt, `uv lock`, the export script, commit). A new test checks every image requirement is pinned; CI fails on a stale lock (`uv sync --locked`) and never re-locks (`uv run --frozen`). CI no longer caches pip (it installs only uv now).
 
+## 2026-11-23 — Container images move to olaheavy-dev
+
+`publish-ghcr.yml` had failed on `main` since the repository moved to `olaheavy-dev` ("denied: permission_denied: The requested installation does not exist" when pushing to `ghcr.io/sunkanmi-olawuwo/...`), so the #24 merge (`7ce6936`) published no images. Images now go to `ghcr.io/olaheavy-dev/fastpilot-{backend,frontend,runner}`, to be public (founder's choice, recorded in `docs/production-decisions.md`): GitHub creates them private, so the founder sets each to public once after the first publish (`DEPLOY.md`). `DEPLOY.md` updated (staging wording removed: `fastpilot-staging` was retired on 23 Nov, see the infra log). Issue #16 keeps the README badge part.
+
+
 ## 2026-11-23 — Rate limits per visitor address (issue #12)
 
 The Playground limit counted per `session_id`, which the browser chooses, so a client could skip it.
