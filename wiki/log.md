@@ -5,6 +5,14 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-23 — Production stack, index snapshot and measurements (infra Phase 22a)
+
+- **Index:** rebuilt from the capstone corpus into a local Qdrant 1.18: 514 documents, **4,241 chunks** (4,232 before; the chunker now makes 9 more), all with `file_path` and `category`. Voyage cost about $0.04 (within the free allowance). Snapshot kept on the Mac with its SHA-256; restore proven on arm64 and on amd64 (the server's chip type). `scripts/07_reindex_production.py` takes `FASTPILOT_CORPUS_ROOT`.
+- **Production stack:** `deploy/docker-compose.prod.yml` + per-service env examples + `deploy/redis.conf.example` + a Mac-only `deploy/docker-compose.local.yml`. Found while running it: containers only on an `internal: true` network get no published ports, so the snapshot is restored from inside the network.
+- **Measured** (Mac, real traffic: 5 browser sessions, 20 Chat questions, 5 Agent tasks, 20 Playground runs): peaks backend 264 MB, frontend 60, runner 68, Qdrant 82, Redis 14, about 490 MB in total; two maximum-size Playground programs at once (about 200 MB each, the most `RLIMIT_AS` 256 MB allows) took the runner to 455 MB, under its 768 MB cap. No container ran out of memory or restarted. 20 of 20 Chat answered, 4 of 5 Agent tasks succeeded, 20 of 20 Playground runs passed; the semantic cache answered a repeat in 0.26 s on Redis 8.
+- **Fixed:** the Redis integration test built its own client without `protocol=2`, so its KNN round trip found nothing (on Redis Stack 7.4 too); the runner integration tests still bypassed the Playground limit with fresh session ids, which #12 closed, so they now start the stack with `tests/fixtures/compose.no-rate-limit.yml`. All 3 Redis and all 9 runner integration tests pass.
+- **Privacy note:** the Chat page adds "Questions and answers are recorded with Opik to improve FastPilot." after the unchanged AI-generated line (founder's choice of the short note). Decisions recorded in `docs/production-decisions.md`.
+
 ## 2026-11-23 — Images and CI pinned to uv.lock (issue #25)
 
 While measuring memory for infra Phase 22a, every Chat question in a freshly built backend image failed with Gemini `400 INVALID_ARGUMENT ... Use api version v1beta`. The images install `app/requirements.txt` and `frontend/requirements.txt`, which only set minimum versions, so a build picked up untested major versions (haystack-ai 3.5.0 vs 2.30.2 tested, google-genai-haystack 7.2.2 vs 4.4.1, qdrant-haystack 13.2.0 vs 10.3.0, voyage-embedders-haystack 3.0.0 vs 1.10.0, Streamlit 1.67.0 vs 1.58.0). CI did the same, so the tests never saw what the images ran.

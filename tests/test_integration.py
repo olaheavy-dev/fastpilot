@@ -113,7 +113,8 @@ def test_semantic_cache_knn_roundtrip(redis_url):
 
     from app.services.semantic_cache import INDEX_NAME, SemanticCache, create_cache_index
 
-    client = redis.Redis.from_url(redis_url, decode_responses=False)  # raw embedding bytes
+    # protocol=2 like app/redis_client.py: under RESP3 redis-py parses FT.SEARCH replies as 0 hits.
+    client = redis.Redis.from_url(redis_url, decode_responses=False, protocol=2)  # raw embedding bytes
     # Fresh index at our small test dimension.
     try:
         client.ft(INDEX_NAME).dropindex(delete_documents=True)

@@ -44,9 +44,18 @@ _PIDS_OF_UID = (
 )
 
 
+# The rate limit counts per address since issue #12, so this stack switches it off (see the file).
+COMPOSE_FILES = ["-f", "docker-compose.yml", "-f", "tests/fixtures/compose.no-rate-limit.yml"]
+
+
 def _compose(*args: str, check: bool = False, timeout: float = 120) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["docker", "compose", *args], cwd=ROOT, capture_output=True, text=True, timeout=timeout, check=check
+        ["docker", "compose", *COMPOSE_FILES, *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=check,
     )
 
 
@@ -59,8 +68,7 @@ def _exec(*cmd: str, user: str | None = SLOT) -> subprocess.CompletedProcess[str
 def _execute(code: str) -> dict:
     import httpx
 
-    # A fresh session per call keeps the Playground's 3-runs-a-minute limit out of the way.
-    resp = httpx.post(f"{BACKEND}/execute", json={"code": code, "session_id": f"itest-{uuid.uuid4()}"}, timeout=60)
+    resp = httpx.post(f"{BACKEND}/execute", json={"code": code}, timeout=60)
     resp.raise_for_status()
     return resp.json()
 

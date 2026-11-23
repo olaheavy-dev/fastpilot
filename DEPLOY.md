@@ -37,6 +37,26 @@ that to work on a public host:
   compose override file. Otherwise anyone can reach Streamlit directly with a made-up
   `CF-Connecting-IP` on each request and get a fresh limit every time.
 
+## Production on the VPS (infra Phase 22)
+
+`deploy/docker-compose.prod.yml` is the production stack: `fastpilot-prod-{backend,frontend,runner,qdrant,redis}`,
+no published ports (Caddy reaches the frontend on `caddy_net`), Qdrant 1.18 and Redis 8 pinned by digest, a
+memory cap on every service (1,728 MB in total) and one env file per service, so the internet-facing frontend
+holds no API keys. Copy the `deploy/*.env.example` files and `deploy/redis.conf.example`, fill them in, and never
+commit them (`.gitignore` covers `deploy/*.env` and `deploy/redis.conf`). The infra repository's
+`deploy-fastpilot.sh` replaces `__FASTPILOT_TAG__` with a `sha-<commit>` tag, checks the file and deploys it.
+
+**Index.** Build it on the Mac (the corpus lives in the capstone repository):
+`FASTPILOT_CORPUS_ROOT=~/source/code/rag/rag-accelerator-capstone uv run python scripts/07_reindex_production.py --full`
+into a local Qdrant, then take a snapshot. Qdrant and Redis sit on an internal network, so the snapshot is
+restored from inside: copy it into `/qdrant/snapshots/<collection>/` and call
+`PUT /collections/<collection>/snapshots/recover` with `file://` and the checksum, from the backend container.
+The 23 Nov 2026 snapshot (4,241 points, SHA-256 `762a6402…`) is kept on the Mac in
+`~/source/code/portfolio/fastpilot-index-snapshots/`.
+
+**Local measuring:** `docker network create caddy_net` once, then
+`docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml up -d --build`.
+
 ## Historical: Railway (offline)
 
 The original setup was **two services in one Railway project** (class week-5 topology): a private

@@ -362,7 +362,9 @@ def main() -> None:
         _handle_prompt(prompt)
 
     st.markdown(
-        '<div class="fp-disclaimer">Answers are AI-generated from the FastAPI corpus and may contain errors.</div>',
+        # Privacy note (founder, 23 Nov 2026: Opik "On, with a privacy note"; wording "Short note").
+        '<div class="fp-disclaimer">Answers are AI-generated from the FastAPI corpus and may contain errors. '
+        "Questions and answers are recorded with Opik to improve FastPilot.</div>",
         unsafe_allow_html=True,
     )
 

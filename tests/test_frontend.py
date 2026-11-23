@@ -52,6 +52,14 @@ def test_welcome_renders_chips(at):
     assert any("Write & run" in lbl for lbl in labels)
 
 
+def test_chat_page_shows_the_opik_privacy_note(at):
+    """Founder, 23 Nov 2026: Opik on for the public site, with a short privacy note under the Chat box."""
+    at.run()
+    text = " ".join(m.value for m in at.markdown)
+    assert "Questions and answers are recorded with Opik to improve FastPilot." in text
+    assert "Answers are AI-generated from the FastAPI corpus and may contain errors." in text  # unchanged
+
+
 def test_sending_query_appends_user_and_assistant(at):
     at.run()
     at.chat_input[0].set_value("How do I add JWT auth?").run()
