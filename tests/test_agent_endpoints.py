@@ -222,6 +222,15 @@ async def test_fix_rate_limited_returns_original_code():
         second = await client.post("/fix", json={"code": "broken(", "stderr": "SyntaxError", "session_id": "rl"})
     assert second.json()["guard"] == "rate_limit"
     assert second.json()["fixed_code"] == "broken("  # echoes input untouched when throttled
+    assert "Easy there" in second.json()["message"]
+
+
+async def test_fix_503_does_not_use_up_a_run():
+    pipe = FakePipeline(ready=False)
+    async with build(pipeline=pipe, per_minute=1) as client:
+        for _ in range(3):
+            r = await client.post("/fix", json={"code": "x", "stderr": "e"})
+            assert r.status_code == 503  # never 200 with guard=rate_limit
 
 
 async def test_fix_503_when_model_unavailable():

@@ -178,7 +178,7 @@ def _render_assistant(msg: dict, idx: int) -> None:
         rewritten=bool(meta.get("rewritten")),
         cache_hit=bool(meta.get("cache_hit")),
         query_type=meta.get("query_type"),
-        guarded=bool(meta.get("refused")),
+        guarded=bool(meta.get("refused") or meta.get("rate_limited")),
     )
     if badges:
         st.markdown(badges, unsafe_allow_html=True)
@@ -198,7 +198,8 @@ def _render_assistant(msg: dict, idx: int) -> None:
         cap.append(f"{len(msg['contexts'])} sources")
     if cap:
         st.caption(" · ".join(cap))
-    _render_feedback(idx, msg)
+    if not meta.get("rate_limited"):  # a limit notice isn't an answer to rate
+        _render_feedback(idx, msg)
 
 
 def _render_history() -> None:

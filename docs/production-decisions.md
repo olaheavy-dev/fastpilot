@@ -112,6 +112,13 @@ address and the backend counts per address. Founder's choices, 23 Nov 2026, each
 - **Daily caps:** asked "how many questions per day is an ip address allow - 10 or 15 is fine?", then
   chose "15 a day (Recommended)" for Chat and "Yes: Agent 5, Playground 30 (Recommended)".
 
+What is stored: each counter's Redis key holds a keyed hash (HMAC-SHA256 with `FRONTEND_PROXY_KEY`) of
+the address, not the address, and expires a few seconds after its window ends (a day counter by just
+after midnight UTC). Blocked calls are taken back off, so they use up no quota. The check runs in a
+worker thread with Redis timeouts (3 s connect, 5 s read), so a slow Redis cannot stall other requests.
+Known limits: visitors behind a shared address (for example, many mobile users behind one carrier IPv4
+address) share one budget; a host given a large IPv6 block (/48) gets many /64 budgets.
+
 Limits now: Chat 15 a day; Agent 2 a minute and 5 a day; Playground 3 a minute and 30 a day (`/execute`
 and `/fix` together). Days reset at midnight UTC. Any limit set to 0 is off. Code:
 `app/augmentations/rate_limit.py`, `app/augmentations/client_identity.py`, `frontend/visitor.py`. The

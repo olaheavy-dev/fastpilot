@@ -167,7 +167,10 @@ flowchart LR
 - `security.py` — `InputGuard` (regex prompt-injection detector, deliberately narrow to
   avoid false refusals) and `OutputValidator` (PII redaction). Deterministic, stdlib-only.
 - `rate_limit.py` — fixed-window limiter with several windows per feature (minute + day), Redis-backed.
-  On a Redis error it counts in memory instead of letting calls through. Limits: Chat 15/day, Agent
+  On a Redis error it counts in memory instead of letting calls through. It adds the call to every
+  window, then takes it back off if any is full (atomic without a script; blocked calls use no quota).
+  Stored keys hold a keyed hash of the address and expire at the window's end. `main.py` runs the
+  check in a worker thread, so Redis I/O never blocks the event loop. Limits: Chat 15/day, Agent
   2/min + 5/day, Playground 3/min + 30/day (`/execute` and `/fix` together); 0 switches one off.
 - `client_identity.py` — the rate-limit key is the visitor's address, never the `session_id` the
   client sends (issue #12). The browser only talks to Streamlit, so `frontend/visitor.py` reads

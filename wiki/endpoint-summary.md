@@ -115,8 +115,9 @@ and runs nothing. `/query` (JSON) over the Chat limit returns the message as `an
 - `/execute` — guards in order: `playground_enabled` (else `404`) → oversize (>10 KB soft
   cap) → rate limit per visitor address (3/min + 30/day, shared with `/fix`) → sandbox scan (import allowlist; guard value stays `denylist`); `unavailable` when the sandbox itself can't start. Returns a `guard` reason rather
   than a 5xx for expected rejections.
-- `/fix` — requires a healthy pipeline (`503` otherwise); prompts the LLM with the code +
-  traceback and returns extracted code.
+- `/fix` — requires a healthy pipeline (`503` otherwise, checked first so it uses up no run) → the
+  same Playground rate limit as `/execute` (over it: `guard: "rate_limit"` with a friendly `message`,
+  code echoed back) → prompts the LLM with the code + traceback and returns extracted code.
 
 ## Monitoring
 - `/health` → `{status, components{rag_pipeline, semantic_cache, conversation[, code_runner]}, executor}`. `code_runner` appears only when `EXECUTOR_MODE=runner`.

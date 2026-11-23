@@ -106,4 +106,5 @@ class FixRequest(BaseModel):
 
 class FixResponse(BaseModel):
     fixed_code: str
-    guard: Optional[str] = None
+    guard: Optional[str] = None  # "rate_limit" | "disabled" (frontend-only) | None
+    message: str = ""  # friendly text when guarded

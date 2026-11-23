@@ -11,6 +11,7 @@ SSE protocol consumed (from app/main.py):
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections.abc import Callable, Iterable, Iterator
 
@@ -24,6 +25,10 @@ API_BASE_URL = os.environ.get("API_BASE_URL") or os.environ.get("BACKEND_URL") o
 CLIENT_IP_HEADER = "X-FastPilot-Client-IP"
 PROXY_KEY_HEADER = "X-FastPilot-Proxy-Key"
 _client_ip_provider: Callable[[], str] = lambda: ""  # noqa: E731 - replaced by app.py
+if not os.environ.get("FRONTEND_PROXY_KEY"):
+    logging.getLogger(__name__).warning(
+        "FRONTEND_PROXY_KEY is not set: visitor addresses are not forwarded, so all visitors share one rate limit"
+    )
 
 
 def set_client_ip_provider(provider: Callable[[], str]) -> None:
@@ -176,7 +181,7 @@ def fix_code(code: str, stderr: str, session_id: str = "", base_url: str | None 
         timeout=timeout,
     )
     if resp.status_code == 404:
-        return {"fixed_code": code, "guard": "disabled"}
+        return {"fixed_code": code, "guard": "disabled", "message": "Playground is turned off on the server."}
     resp.raise_for_status()
     return resp.json()
 

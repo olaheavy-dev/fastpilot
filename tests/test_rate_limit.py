@@ -102,11 +102,43 @@ def test_redis_path_counts_and_sets_expiry(clock):
     keys = r.keys("rl:t:*")
     assert len(keys) == 2  # one minute bucket, one day bucket
     assert all(0 < r.ttl(k) <= DAY for k in keys)
+    assert all(int(r.get(k)) == 2 for k in keys)  # the blocked 3rd call was taken back off
+
+
+def test_stored_keys_hold_no_raw_address_and_expire_at_window_end(clock):
+    r = fakeredis.FakeRedis(decode_responses=True)
+    rl = RateLimiter(namespace="t", redis_client=r, hash_secret="s", limits=[(MINUTE, 5), (DAY, 5)])
+    rl.check("203.0.113.7")
+    keys = r.keys("rl:t:*")
+    assert not any("203.0.113.7" in k for k in keys)
+    ttls = {int(k.split(":")[2]): r.ttl(k) for k in keys}
+    assert ttls[MINUTE] <= 40 + 5  # 40 s to the minute's end, plus slack
+    assert ttls[DAY] <= DAY - (1_700_000_000 % DAY) + 5  # gone soon after midnight UTC
+
+
+def test_hash_secret_changes_the_stored_key(clock):
+    r = fakeredis.FakeRedis(decode_responses=True)
+    RateLimiter(namespace="a", redis_client=r, hash_secret="one", limits=[(MINUTE, 5)]).check("k")
+    RateLimiter(namespace="a", redis_client=r, hash_secret="two", limits=[(MINUTE, 5)]).check("k")
+    assert len(r.keys("rl:a:*")) == 2
+
+
+def test_parallel_calls_never_exceed_the_limit(clock):
+    import threading
+
+    rl = RateLimiter(namespace="t", limits=[(MINUTE, 3)])
+    results = []
+    threads = [threading.Thread(target=lambda: results.append(rl.check("k").allowed)) for _ in range(20)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert results.count(True) == 3
 
 
 def test_redis_error_falls_back_to_memory_not_open(clock):
     class _BoomRedis:
-        def get(self, key):
+        def pipeline(self, transaction=True):
             raise RuntimeError("redis down")
 
     rl = RateLimiter(namespace="t", redis_client=_BoomRedis(), limits=[(MINUTE, 1)])
@@ -178,7 +210,9 @@ def test_no_peer_gives_one_shared_unknown_key():
 @pytest.mark.parametrize(
     ("seconds", "text"),
     [
+        (1, "1 second"),
         (40, "40 seconds"),
+        (3570, "about 1 hour"),
         (60, "about 1 minute"),
         (150, "about 2 minutes"),
         (3600, "about 1 hour"),

@@ -31,6 +31,11 @@ that to work on a public host:
   with no open port). The frontend reads the visitor's address from `CF-Connecting-IP`, and anyone who
   reaches Streamlit directly can set that header to any value.
 - Keep the backend off the public internet. The shared key protects it if a port opens by mistake.
+- `docker-compose.yml` publishes `8000:8000` and `8501:8501` on every host interface, and ports Docker
+  publishes bypass host firewalls such as ufw. On the VPS, remove the backend's `ports:` entry and bind
+  the frontend to `127.0.0.1:8501:8501` (or publish no port at all behind a tunnel), for example in a
+  compose override file. Otherwise anyone can reach Streamlit directly with a made-up
+  `CF-Connecting-IP` on each request and get a fresh limit every time.
 
 ## Historical: Railway (offline)
 

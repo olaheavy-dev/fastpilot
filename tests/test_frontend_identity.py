@@ -83,3 +83,27 @@ def test_visitor_ip_header_can_be_switched_off(monkeypatch):
 def test_visitor_ip_never_raises(monkeypatch):
     monkeypatch.setattr(visitor, "st", SimpleNamespace())  # no st.context at all
     assert visitor.visitor_ip() == ""
+
+
+class _StreamResp(_Resp):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def iter_lines(self, decode_unicode=True):
+        return iter([])
+
+
+def test_streams_send_address_and_key(monkeypatch):
+    monkeypatch.setenv("FRONTEND_PROXY_KEY", "k")
+    api_client.set_client_ip_provider(lambda: "203.0.113.7")
+    sent = []
+    monkeypatch.setattr(api_client.requests, "post", lambda *a, **kw: sent.append(kw["headers"]) or _StreamResp())
+    list(api_client.stream_query("hi"))
+    list(api_client.stream_agent("task"))
+    assert len(sent) == 2
+    for h in sent:
+        assert h["Accept"] == "text/event-stream"
+        assert h["X-FastPilot-Client-IP"] == "203.0.113.7" and h["X-FastPilot-Proxy-Key"] == "k"
