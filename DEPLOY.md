@@ -128,20 +128,31 @@ Talking points for the recording live in [`video-transcript.md`](video-transcrip
 `docker compose up backend frontend` (from the repo root) starts all three services against the same
 managed Redis/Qdrant — same Dockerfiles as the images below.
 
-## GHCR images for SoloForge staging
+## GHCR images
 
-The `publish-ghcr.yml` workflow builds the backend, frontend and runner Docker images for VPS staging.
+The `publish-ghcr.yml` workflow builds the backend, frontend and runner Docker images for the VPS.
+The images are to be **public** (founder, 23 Nov 2026: "Public (Recommended)"): the repository is
+public and the images hold no secrets, so the server pulls them without a token. Production deploys
+pin a `sha-<short-sha>` tag (infra Phase 22); `:main` is for local use only.
+
+GitHub creates every new package **private**, whatever the repository's visibility
+([GitHub: package visibility](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)).
+So, once, after the first successful publish to `ghcr.io/olaheavy-dev/`, an organisation owner opens
+each of the three packages (`fastpilot-backend`, `fastpilot-frontend`, `fastpilot-runner`) →
+**Package settings** → **Change visibility** → **Public**. GitHub does not let a public package go
+back to private. Then check with a logged-out pull, for example
+`docker logout ghcr.io; docker pull ghcr.io/olaheavy-dev/fastpilot-backend:main`.
 
 On pull requests, the workflow builds all three images without pushing them. On push to `main`, or a
 manual workflow dispatch, it publishes:
 
 ```text
-ghcr.io/sunkanmi-olawuwo/fastpilot-backend:main
-ghcr.io/sunkanmi-olawuwo/fastpilot-backend:sha-<short-sha>
-ghcr.io/sunkanmi-olawuwo/fastpilot-frontend:main
-ghcr.io/sunkanmi-olawuwo/fastpilot-frontend:sha-<short-sha>
-ghcr.io/sunkanmi-olawuwo/fastpilot-runner:main
-ghcr.io/sunkanmi-olawuwo/fastpilot-runner:sha-<short-sha>
+ghcr.io/olaheavy-dev/fastpilot-backend:main
+ghcr.io/olaheavy-dev/fastpilot-backend:sha-<short-sha>
+ghcr.io/olaheavy-dev/fastpilot-frontend:main
+ghcr.io/olaheavy-dev/fastpilot-frontend:sha-<short-sha>
+ghcr.io/olaheavy-dev/fastpilot-runner:main
+ghcr.io/olaheavy-dev/fastpilot-runner:sha-<short-sha>
 ```
 
 Runtime secrets are supplied by the target platform, to the backend only. The runner gets none. Do not bake Qdrant, Redis, Voyage,

@@ -21,17 +21,17 @@ jobs:
           - service: backend
             context: app
             file: app/Dockerfile
-            image: ghcr.io/sunkanmi-olawuwo/fastpilot-backend
+            image: ghcr.io/olaheavy-dev/fastpilot-backend
           - service: frontend
             context: frontend
             file: frontend/Dockerfile
-            image: ghcr.io/sunkanmi-olawuwo/fastpilot-frontend
+            image: ghcr.io/olaheavy-dev/fastpilot-frontend
           # Context is the repo root: the image copies app/augmentations/code_executor.py.
           # runner/Dockerfile.dockerignore keeps the context to the files it copies.
           - service: runner
             context: .
             file: runner/Dockerfile
-            image: ghcr.io/sunkanmi-olawuwo/fastpilot-runner
+            image: ghcr.io/olaheavy-dev/fastpilot-runner
 
     steps:
       - uses: actions/checkout@v5
