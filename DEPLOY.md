@@ -155,13 +155,10 @@ The images are to be **public** (founder, 23 Nov 2026: "Public (Recommended)"): 
 public and the images hold no secrets, so the server pulls them without a token. Production deploys
 pin a `sha-<short-sha>` tag (infra Phase 22); `:main` is for local use only.
 
-GitHub creates every new package **private**, whatever the repository's visibility
-([GitHub: package visibility](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)).
-So, once, after the first successful publish to `ghcr.io/olaheavy-dev/`, an organisation owner opens
-each of the three packages (`fastpilot-backend`, `fastpilot-frontend`, `fastpilot-runner`) →
-**Package settings** → **Change visibility** → **Public**. GitHub does not let a public package go
-back to private. Then check with a logged-out pull, for example
-`docker logout ghcr.io; docker pull ghcr.io/olaheavy-dev/fastpilot-backend:main`.
+The three packages came out **public** on the first publish (23 Nov 2026): they are linked to this
+public repository and took its visibility, so no settings change was needed. Checked with a logged-out
+pull: `DOCKER_CONFIG=$(mktemp -d) docker pull --platform linux/amd64 ghcr.io/olaheavy-dev/fastpilot-backend:main`.
+The images are built for `linux/amd64` (the server) only.
 
 On pull requests, the workflow builds all three images without pushing them. On push to `main`, or a
 manual workflow dispatch, it publishes:
