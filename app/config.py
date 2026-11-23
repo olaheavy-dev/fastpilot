@@ -89,8 +89,17 @@ class Settings(BaseSettings):
     # Fail closed: with mode "local" and this False, the Playground and Agent are switched off.
     allow_local_executor: bool = True
     playground_max_code_bytes: int = 10_240  # 10KB
-    playground_rate_per_min: int = 3
     agent_budget_s: int = 90  # total wall budget for an agent run before honest-failure
+
+    # --- Rate limits per visitor address (issue #12); 0 switches a limit off ---
+    # Shared secret the frontend sends with the visitor's address. Empty: the forwarded
+    # address is ignored and every visitor counts as the frontend's own address.
+    frontend_proxy_key: str = ""
+    chat_rate_per_day: int = 15
+    agent_rate_per_min: int = 2
+    agent_rate_per_day: int = 5
+    playground_rate_per_min: int = 3  # /execute and /fix share these two
+    playground_rate_per_day: int = 30
 
     # --- Opik observability (D8) ---
     opik_api_key: str = ""

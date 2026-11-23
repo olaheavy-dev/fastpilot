@@ -36,4 +36,8 @@ def make_redis_client(settings: "Settings", *, decode_responses: bool) -> "redis
         ssl=settings.redis_ssl,
         decode_responses=decode_responses,
         protocol=2,
+        # A stalled connection must raise, not hang a worker thread for minutes:
+        # every caller degrades on errors (the rate limiter falls back to memory).
+        socket_connect_timeout=3,
+        socket_timeout=5,
     )

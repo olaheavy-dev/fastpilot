@@ -84,7 +84,7 @@ You only need keys to talk to live services. See [[testing-strategy]].
   (strings built at run time that FastAPI evaluates as annotations). The `nobody` privilege drop
   only happens when the server is root. The boundary is the runner sidecar (a separate container with no
   keys and no network; see [[component-architecture]]). Agent and Playground should not go public until
-  the VPS move and issue #12 are done. This is
+  the VPS move is done. This is
   documented openly, not hidden — see [[component-architecture]] and [[feature-coverage]].
 - **Refusals aren't stored in conversation memory** — otherwise the next real question gets
   mis-rewritten as a follow-up. Small decision, real bug avoided.

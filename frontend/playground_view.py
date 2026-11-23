@@ -102,6 +102,7 @@ def render() -> None:
     if run:
         st.session_state.playground_code = code
         st.session_state.pg_fix_preview = None
+        st.session_state.pg_fix_notice = ""
         try:
             st.session_state.pg_result = api_client.execute_code(code, st.session_state.session_id)
         except requests.RequestException:
@@ -126,7 +127,12 @@ def render() -> None:
                 if cols[0].button("✨ Fix with AI"):
                     try:
                         fix = api_client.fix_code(code, result.get("stderr", ""), st.session_state.session_id)
-                        st.session_state.pg_fix_preview = fix.get("fixed_code")
+                        if fix.get("guard"):  # rate-limited or disabled: say so, show no preview
+                            st.session_state.pg_fix_notice = fix.get("message") or "Fix with AI isn't available now."
+                            st.session_state.pg_fix_preview = None
+                        else:
+                            st.session_state.pg_fix_notice = ""
+                            st.session_state.pg_fix_preview = fix.get("fixed_code")
                     except requests.RequestException:
                         st.warning("Couldn't reach the fixer — is the backend running?")
                     st.rerun()
@@ -138,6 +144,9 @@ def render() -> None:
                     )
                     st.rerun()
 
+    notice = st.session_state.get("pg_fix_notice")
+    if notice:
+        st.warning(notice)
     preview = st.session_state.get("pg_fix_preview")
     if preview:
         st.markdown("**Suggested fix** — a preview; your editor is untouched until you apply.")

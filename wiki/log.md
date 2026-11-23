@@ -5,6 +5,34 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-23 — Rate limits per visitor address (issue #12)
+
+The Playground limit counted per `session_id`, which the browser chooses, so a client could skip it.
+The browser never talks to the backend (Streamlit's server does), so the backend could not just read
+the client IP either.
+- **Added:** `app/augmentations/client_identity.py` (rate-limit key = forwarded address only when
+  `FRONTEND_PROXY_KEY` matches, else the connection's address; IPv6 grouped by /64),
+  `frontend/visitor.py` (reads `CF-Connecting-IP`, or `VISITOR_IP_HEADER`), and an `api_client` hook
+  that sends `X-FastPilot-Client-IP` + `X-FastPilot-Proxy-Key` on every backend call.
+- **Changed:** `rate_limit.py` holds several windows per feature and falls back to memory on a Redis
+  error (it used to let everything through). New limits: Chat 15/day (new), Agent 2/min + 5/day (new;
+  it had none), Playground 3/min + 30/day. Over a limit: friendly message; Chat/Agent streams end with
+  `done{rate_limited: true}`.
+- **Decisions** (founder's choices, all the recommended option) recorded in
+  `docs/production-decisions.md` (D11 update).
+- **Pages updated:** [[component-architecture]], [[endpoint-summary]], [[feature-coverage]],
+  [[onboarding]]; also `DEPLOY.md`, `README.md`, `.env.example`, `docs/augmentation-decisions.md`.
+- **Contradiction noted:** pages said Agent/Playground wait on issue #12; they now wait only on the VPS
+  move. The original "3 runs/min/session" text stays in the decision essays as history.
+
+- **CI fix:** `redis` 8.2.0 (released 23 Nov) breaks `fakeredis` 2.40.0, failing every fakeredis
+  test; CI now installs `redis<8.2` until fakeredis catches up. The concurrent soak script switches
+  the quotas off for its run (it measures the pipeline, and all its simulated users share one address).
+
+**Next steps (replaces step 1 of the 22 Nov hand-over):** the infra phase must set the same
+`FRONTEND_PROXY_KEY` on backend and frontend, keep the backend private, and expose the frontend only
+through Cloudflare (no open port), as listed in `DEPLOY.md`. Steps 2–4 of the 22 Nov hand-over stand.
+
 ## 2026-11-22 — Session hand-over (open items, next steps, founder to-dos)
 
 **Merged today:** #17 sandbox hardening (allowlist, privilege drop, `AGENT_ENABLED`), #19 runner

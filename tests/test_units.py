@@ -107,47 +107,7 @@ def test_source_url_maps_origin_to_canonical_url():
     assert source_url({"file_path": "plain-name.md"}) == ""  # unknown shape → no link
 
 
-# --- rate limiter ---------------------------------------------------------
-def test_rate_limiter_in_memory_allows_then_blocks():
-    from app.augmentations.rate_limit import RateLimiter
-
-    rl = RateLimiter(per_minute=2)
-    assert rl.check("sess") == (True, 0)
-    assert rl.check("sess") == (True, 0)
-    allowed, retry_after = rl.check("sess")
-    assert allowed is False
-    assert retry_after >= 1  # tells the caller when to come back
-
-
-def test_rate_limiter_blank_session_bucketed_as_anon():
-    from app.augmentations.rate_limit import RateLimiter
-
-    rl = RateLimiter(per_minute=1)
-    assert rl.check("")[0] is True
-    assert rl.check("")[0] is False  # same "anon" bucket
-
-
-def test_rate_limiter_redis_path_counts_and_blocks():
-    import fakeredis
-
-    from app.augmentations.rate_limit import RateLimiter
-
-    rl = RateLimiter(redis_client=fakeredis.FakeRedis(decode_responses=True), per_minute=2)
-    assert rl.check("s")[0] is True
-    assert rl.check("s")[0] is True
-    assert rl.check("s")[0] is False  # 3rd in the same 60s bucket
-
-
-def test_rate_limiter_fails_open_on_redis_error():
-    from app.augmentations.rate_limit import RateLimiter
-
-    class _BoomRedis:
-        def incr(self, key):
-            raise RuntimeError("redis down")
-
-    rl = RateLimiter(redis_client=_BoomRedis(), per_minute=1)
-    # Never block on Redis trouble — a friendly rate limit fails open.
-    assert rl.check("s") == (True, 0)
+# Rate limiter and client identity tests live in tests/test_rate_limit.py.
 
 
 # --- dogfood writer -------------------------------------------------------

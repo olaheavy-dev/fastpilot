@@ -32,8 +32,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from app import dogfood, observability
 from app.augmentations.agent_orchestrator import AgentOrchestrator, extract_code
+from app.augmentations.client_identity import PROXY_KEY_HEADER, client_key
 from app.augmentations.code_executor import get_executor
-from app.augmentations.rate_limit import RateLimiter
+from app.augmentations.rate_limit import DAY, MINUTE, Decision, RateLimiter
 from app.augmentations.security import REFUSAL_MESSAGE, get_input_guard
 from app.config import get_settings
 from app.formatting import source_label, source_title, source_url
@@ -75,6 +76,53 @@ def _estimate_cost(num_llm_calls: int) -> float:
 
 def _new_msg_id() -> str:
     return f"msg_{uuid.uuid4().hex[:12]}"
+
+
+_warned_missing_proxy_key = False
+
+
+async def _rate_check(http: Request, limiter_name: str) -> Decision:
+    """Count this request against the named limiter, keyed on the visitor's address (#12).
+
+    The limiter does blocking Redis I/O, so it runs in a worker thread, off the event loop."""
+    global _warned_missing_proxy_key
+    proxy_key = get_settings().frontend_proxy_key
+    if proxy_key and PROXY_KEY_HEADER not in http.headers and not _warned_missing_proxy_key:
+        _warned_missing_proxy_key = True
+        logger.warning(
+            "A request arrived without %s although FRONTEND_PROXY_KEY is set: is the key set on the frontend too?",
+            PROXY_KEY_HEADER,
+        )
+    key = client_key(http, proxy_key)
+    return await asyncio.to_thread(getattr(http.app.state, limiter_name).check, key)
+
+
+def _plural(n: int, unit: str) -> str:
+    return f"{n} {unit}{'' if n == 1 else 's'}"
+
+
+def _wait_text(seconds: int) -> str:
+    if seconds >= 3570:  # round up to hours from 59½ minutes: never "about 60 minutes"
+        return f"about {_plural(round(seconds / 3600), 'hour')}"
+    if seconds >= 60:
+        return f"about {_plural(round(seconds / 60), 'minute')}"
+    return _plural(seconds, "second")
+
+
+def _limit_message(feature: str, decision: Decision) -> str:
+    """The friendly text a visitor sees when a rate limit blocks them."""
+    s = get_settings()
+    wait = _wait_text(decision.retry_after)
+    daily_used = {
+        "chat": f"{s.chat_rate_per_day} questions",
+        "agent": f"{s.agent_rate_per_day} Agent runs",
+        "playground": f"{s.playground_rate_per_day} Playground runs",
+    }[feature]
+    if feature == "chat" or decision.window_s >= DAY:
+        return f"You've used today's {daily_used}. They reset at midnight UTC, in {wait}. Come back then!"
+    per_min = s.agent_rate_per_min if feature == "agent" else s.playground_rate_per_min
+    noun = "Agent runs" if feature == "agent" else "runs"
+    return f"Easy there — {per_min} {noun} a minute keeps the sandbox happy. Your next run unlocks in {wait}."
 
 
 def _stream_text_chunks(text: str, chunk_size: int = 3):
@@ -329,6 +377,30 @@ async def _run_stream_setup(svc: _Services, query_text: str, session_id: str, us
 # ---------------------------------------------------------------------------
 # Lifespan
 # ---------------------------------------------------------------------------
+def build_rate_limiters(app: FastAPI, settings, redis_client=None) -> None:  # noqa: ANN001
+    """One limiter per feature, each keyed on the visitor's address (issue #12)."""
+    secret = settings.frontend_proxy_key  # also keys the hash of stored addresses
+    app.state.chat_limiter = RateLimiter(
+        namespace="chat", redis_client=redis_client, hash_secret=secret, limits=[(DAY, settings.chat_rate_per_day)]
+    )
+    app.state.agent_limiter = RateLimiter(
+        namespace="agent",
+        redis_client=redis_client,
+        hash_secret=secret,
+        limits=[(MINUTE, settings.agent_rate_per_min), (DAY, settings.agent_rate_per_day)],
+    )
+    app.state.playground_limiter = RateLimiter(
+        namespace="pg",
+        redis_client=redis_client,
+        hash_secret=secret,
+        limits=[(MINUTE, settings.playground_rate_per_min), (DAY, settings.playground_rate_per_day)],
+    )
+    if not settings.frontend_proxy_key:
+        logger.warning(
+            "FRONTEND_PROXY_KEY is not set: rate limits count every visitor as the frontend's own address"
+        )
+
+
 def apply_execution_gate(settings) -> bool:  # noqa: ANN001
     """Fail closed: the local executor needs an explicit opt-in. Returns True if it switched the flags off."""
     if (
@@ -363,10 +435,7 @@ async def lifespan(app: FastAPI):
     app.state.conversation = get_conversation_service()
     app.state.router = get_query_router()
     app.state.executor = get_executor()
-    app.state.rate_limiter = RateLimiter(
-        redis_client=getattr(app.state.conversation, "redis", None),
-        per_minute=settings.playground_rate_per_min,
-    )
+    build_rate_limiters(app, settings, getattr(app.state.conversation, "redis", None))
     app.state.request_count = 0
     app.state.total_latency_ms = 0.0
     app.state.total_cost_usd = 0.0
@@ -402,6 +471,17 @@ def create_app() -> FastAPI:
         start = time.time()
         svc = _Services(http.app)
         session_id = request.session_id or svc.conversation.create_session_id()
+
+        decision = await _rate_check(http, "chat_limiter")
+        if not decision.allowed:  # like refusals, kept out of conversation memory
+            logger.info("query rate-limited session=%s", session_id[:14])
+            return QueryResponse(
+                answer=_limit_message("chat", decision),
+                contexts=[],
+                metadata={"rate_limited": True, "cache_hit": False, "latency_ms": 0.0},
+                session_id=session_id,
+                msg_id=_new_msg_id(),
+            )
 
         safe, pattern = get_input_guard().check(request.query)
         if not safe:
@@ -441,12 +521,19 @@ def create_app() -> FastAPI:
     async def query_stream(request: QueryRequest, http: Request):  # noqa: ANN202
         svc = _Services(http.app)
         app_ref = http.app
+        decision = await _rate_check(http, "chat_limiter")
 
         async def gen():
             start = time.time()
             session_id = request.session_id or svc.conversation.create_session_id()
             producer = None
             yield _sse("session", {"session_id": session_id})
+
+            if not decision.allowed:  # like refusals, kept out of conversation memory
+                yield _sse("token", {"token": _limit_message("chat", decision)})
+                yield _sse("done", {"rate_limited": True, "msg_id": _new_msg_id(), "session_id": session_id})
+                logger.info("stream rate-limited session=%s", session_id[:14])
+                return
 
             safe, pattern = get_input_guard().check(request.query)
             if not safe:
@@ -599,11 +686,20 @@ def create_app() -> FastAPI:
         svc = _Services(http.app)
         executor = http.app.state.executor
         session_id = request.session_id or svc.conversation.create_session_id()
+        decision = await _rate_check(http, "agent_limiter")
 
         async def gen():
             observability.set_thread_id(session_id)
             yield _sse("session", {"session_id": session_id})
             msg_id = _new_msg_id()
+            if not decision.allowed:
+                yield _sse("token", {"token": _limit_message("agent", decision)})
+                yield _sse(
+                    "done",
+                    {"success": False, "rate_limited": True, "msg_id": msg_id, "session_id": session_id},
+                )
+                logger.info("agent rate-limited session=%s window=%ss", session_id[:14], decision.window_s)
+                return
             orch = AgentOrchestrator(pipeline=svc.pipeline, executor=executor, budget_s=settings.agent_budget_s)
             answer_parts: list[str] = []
             success = False
@@ -643,15 +739,9 @@ def create_app() -> FastAPI:
             raise HTTPException(status_code=404, detail="Playground is disabled.")
         if len(request.code.encode("utf-8")) > settings.playground_max_code_bytes:
             return ExecuteResult(guard="oversize", stderr="That's a lot of code — the sandbox takes up to 10 KB.")
-        allowed, retry = http.app.state.rate_limiter.check(request.session_id)
-        if not allowed:
-            return ExecuteResult(
-                guard="rate_limit",
-                stderr=(
-                    "Easy there — 3 runs a minute keeps the sandbox happy. "
-                    f"Your next run unlocks in {retry} seconds."
-                ),
-            )
+        decision = await _rate_check(http, "playground_limiter")
+        if not decision.allowed:
+            return ExecuteResult(guard="rate_limit", stderr=_limit_message("playground", decision))
         result = await asyncio.to_thread(http.app.state.executor.run, request.code)
         if result.unavailable:
             return ExecuteResult(
@@ -684,12 +774,14 @@ def create_app() -> FastAPI:
     async def fix(request: FixRequest, http: Request):  # noqa: ANN202
         if not settings.playground_enabled:
             raise HTTPException(status_code=404, detail="Playground is disabled.")
-        allowed, _ = http.app.state.rate_limiter.check(request.session_id)
-        if not allowed:
-            return FixResponse(fixed_code=request.code, guard="rate_limit")
         pipe = http.app.state.pipeline
-        if not pipe.is_healthy():
+        if not pipe.is_healthy():  # before the limit, so a 503 doesn't use up a run
             raise HTTPException(status_code=503, detail="Code model unavailable.")
+        decision = await _rate_check(http, "playground_limiter")
+        if not decision.allowed:
+            return FixResponse(
+                fixed_code=request.code, guard="rate_limit", message=_limit_message("playground", decision)
+            )
         from haystack.dataclasses import ChatMessage
 
         from app.prompts import AGENT_FIX_PROMPT

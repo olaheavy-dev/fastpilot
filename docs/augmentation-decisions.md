@@ -29,7 +29,8 @@ A **grounded code-runner agent**, plus a user-facing **Playground**
   (scrubbed env, temp-dir cwd, own process group) → `RLIMIT` CPU/AS/FSIZE → wall-timeout
   killpg → socket-guard prelude. The same scan+sandbox path backs the Playground `/execute`.
 - **Playground (D11)** — Monaco editor (with `st.text_area` fallback) → `/execute`; "Fix with
-  AI" → `/fix` reuses `AGENT_FIX_PROMPT`. Caps: 10 KB, 15 s wall, 3 runs/min/session,
+  AI" → `/fix` reuses `AGENT_FIX_PROMPT`. Caps: 10 KB, 15 s wall, 3 runs/min/session
+  (now per visitor address, plus 30 a day: see the D11 update in `production-decisions.md`),
   `PLAYGROUND_ENABLED` kill switch. The one external dependency, contained to one view + one
   endpoint.
 

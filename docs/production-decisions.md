@@ -86,8 +86,8 @@ Docker) check no network, no keys, a read-only filesystem and the slot isolation
 guarantee:** escaped code can still use the runner's CPU and memory, within its limits, and the scan in
 front of it is still only a filter. The built design is in
 `docs/superpowers/specs/2026-11-22-runner-sidecar-design.md`. Agent and Playground should not go public
-until the VPS move (after infra PR #85) is done and issue #12 (the rate limit is keyed on a session id
-the client chooses) is fixed. The demo is not live.
+until the VPS move (after infra PR #85) is done. Issue #12 (the rate limit) is fixed; see the D11 update
+below. The demo is not live.
 
 ### Playground (D11) — **added, with a threat model**
 **Why:** turns the agent's sandbox into a user-facing "now *you* tweak it" surface — the strongest demo
@@ -96,6 +96,33 @@ caps (10 KB, 15 s wall, 3 runs/min/session), no secrets in the subprocess env, a
 kill switch that 404s the endpoint without a redeploy. The only added dependency (`streamlit-monaco`),
 contained to one view with a `st.text_area` fallback. **Evidence:** oversize / rate-limit / denylist /
 disabled-404 guard tests.
+
+**Update 2026-11-23 (issue #12, rate limits per visitor address).** The limit used to count per
+`session_id`, a value the browser sends, so a client could send a new id each time and skip it. The
+browser never talks to the backend (Streamlit's server does), so the frontend now forwards the visitor's
+address and the backend counts per address. Founder's choices, 23 Nov 2026, each the recommended option:
+- **Trust:** "Shared secret (Recommended)". The backend believes the forwarded address only with a
+  matching `FRONTEND_PROXY_KEY`; otherwise it uses the connection's own address. Safe even if the backend
+  port opens by mistake.
+- **Agent limit:** "Own limit, 2 a minute (Recommended)". The Agent had no limit; an Agent run is far
+  heavier than a Playground run.
+- **Redis down:** "Fall back to memory (Recommended)". The limiter used to allow everything on a Redis
+  error; now it counts in-process, so an outage cannot switch the limit off.
+- **IPv6:** "Group by /64 block (Recommended)". One connection usually gets a whole /64.
+- **Daily caps:** asked "how many questions per day is an ip address allow - 10 or 15 is fine?", then
+  chose "15 a day (Recommended)" for Chat and "Yes: Agent 5, Playground 30 (Recommended)".
+
+What is stored: each counter's Redis key holds a keyed hash (HMAC-SHA256 with `FRONTEND_PROXY_KEY`) of
+the address, not the address, and expires a few seconds after its window ends (a day counter by just
+after midnight UTC). Blocked calls are taken back off, so they use up no quota. The check runs in a
+worker thread with Redis timeouts (3 s connect, 5 s read), so a slow Redis cannot stall other requests.
+Known limits: visitors behind a shared address (for example, many mobile users behind one carrier IPv4
+address) share one budget; a host given a large IPv6 block (/48) gets many /64 budgets.
+
+Limits now: Chat 15 a day; Agent 2 a minute and 5 a day; Playground 3 a minute and 30 a day (`/execute`
+and `/fix` together). Days reset at midnight UTC. Any limit set to 0 is off. Code:
+`app/augmentations/rate_limit.py`, `app/augmentations/client_identity.py`, `frontend/visitor.py`. The
+"3 runs/min/session" above is the original design, kept for history.
 
 ### T3 two-stage LLM routing — **skipped** (honest cost/benefit)
 **Why skipped:** T3 was competitive on retrieval but ran **~34 s/query** (vs T1b's ~11 s) from the extra

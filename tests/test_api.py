@@ -81,6 +81,26 @@ async def test_sse_refusal_on_injection(api_client):
     assert events[-1][1]["refused"] is True
 
 
+async def test_chat_daily_cap_on_both_endpoints(monkeypatch):
+    """15 questions a day per visitor address (issue #12); a new session id doesn't reset it,
+    and a capped question is kept out of conversation memory like a refusal."""
+    from app.config import get_settings
+    from tests.conftest import build_client
+
+    monkeypatch.setattr(get_settings(), "chat_rate_per_day", 1)
+    async with build_client() as client:
+        first = (await client.post("/query", json={"query": "How do I add CORS?", "session_id": "a"})).json()
+        assert "rate_limited" not in first["metadata"]
+        capped = (await client.post("/query", json={"query": "And JWT?", "session_id": "b"})).json()
+        events = await _events(client, {"query": "And OAuth?", "session_id": "c"})
+        convo_b = (await client.get("/conversation/b")).json()
+    assert capped["metadata"]["rate_limited"] is True
+    assert "today's 1 questions" in capped["answer"]
+    assert convo_b["messages"] == []
+    assert [e for e, _ in events] == ["session", "token", "done"]
+    assert events[-1][1]["rate_limited"] is True
+
+
 async def test_refusal_leaves_session_empty(api_client):
     """A refused first turn must not write history — else the next genuine question
     is mis-treated as a follow-up (phantom rewrite)."""

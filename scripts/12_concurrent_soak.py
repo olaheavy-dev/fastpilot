@@ -85,12 +85,23 @@ async def _agent_run(client, task: str) -> dict:
 
 
 async def run() -> dict:
-    from app.main import create_app
+    from app.config import get_settings
+    from app.main import build_rate_limiters, create_app
     from asgi_lifespan import LifespanManager
     from httpx import ASGITransport, AsyncClient
 
     app = create_app()
     async with LifespanManager(app):
+        # This measures the pipeline under load, not the visitor quotas (issue #12): every
+        # simulated user shares one address here, so switch the limits off for this run only.
+        no_limits = {
+            "chat_rate_per_day": 0,
+            "agent_rate_per_min": 0,
+            "agent_rate_per_day": 0,
+            "playground_rate_per_min": 0,
+            "playground_rate_per_day": 0,
+        }
+        build_rate_limiters(app, get_settings().model_copy(update=no_limits))
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://t", timeout=180.0) as client:
             # EVERYTHING at once: 8 user sessions + 2 agent runs.

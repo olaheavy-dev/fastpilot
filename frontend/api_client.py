@@ -11,13 +11,43 @@ SSE protocol consumed (from app/main.py):
 from __future__ import annotations
 
 import json
+import logging
 import os
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 
 import requests
 
 # Accept BACKEND_URL as an alias for API_BASE_URL (e.g. Railway env var naming).
 API_BASE_URL = os.environ.get("API_BASE_URL") or os.environ.get("BACKEND_URL") or "http://localhost:8000"
+
+# Rate limits (issue #12): the backend can't see the visitor, so we forward their address
+# with a shared key. Header names must match app/augmentations/client_identity.py.
+CLIENT_IP_HEADER = "X-FastPilot-Client-IP"
+PROXY_KEY_HEADER = "X-FastPilot-Proxy-Key"
+_client_ip_provider: Callable[[], str] = lambda: ""  # noqa: E731 - replaced by app.py
+if not os.environ.get("FRONTEND_PROXY_KEY"):
+    logging.getLogger(__name__).warning(
+        "FRONTEND_PROXY_KEY is not set: visitor addresses are not forwarded, so all visitors share one rate limit"
+    )
+
+
+def set_client_ip_provider(provider: Callable[[], str]) -> None:
+    """Register how to read the current visitor's address (``visitor.visitor_ip``)."""
+    global _client_ip_provider
+    _client_ip_provider = provider
+
+
+def identity_headers() -> dict[str, str]:
+    """The visitor's address and the shared key, or nothing when either is missing."""
+    key = os.environ.get("FRONTEND_PROXY_KEY", "")
+    if not key:
+        return {}
+    try:
+        ip = _client_ip_provider() or ""
+    except Exception:  # noqa: BLE001 - never break a request over this
+        ip = ""
+    return {CLIENT_IP_HEADER: ip, PROXY_KEY_HEADER: key} if ip else {}
+
 
 # Event names the backend emits (for reference / validation in the UI).
 KNOWN_EVENTS = {"session", "rewrite", "cache_status", "classification", "context", "token", "done", "error"}
@@ -63,7 +93,8 @@ def stream_query(
     """POST /query/stream and yield parsed ``(event, data)`` pairs."""
     url = f"{base_url or API_BASE_URL}/query/stream"
     body = {"query": query, "session_id": session_id, "use_cache": use_cache}
-    with requests.post(url, json=body, stream=True, headers={"Accept": "text/event-stream"}, timeout=timeout) as resp:
+    headers = {"Accept": "text/event-stream", **identity_headers()}
+    with requests.post(url, json=body, stream=True, headers=headers, timeout=timeout) as resp:
         resp.raise_for_status()
         yield from parse_sse_lines(resp.iter_lines(decode_unicode=True))
 
@@ -78,7 +109,7 @@ def send_query(
     """POST /query (non-streaming) → QueryResponse dict."""
     url = f"{base_url or API_BASE_URL}/query"
     body = {"query": query, "session_id": session_id, "use_cache": use_cache}
-    resp = requests.post(url, json=body, timeout=timeout)
+    resp = requests.post(url, json=body, headers=identity_headers(), timeout=timeout)
     resp.raise_for_status()
     return resp.json()
 
@@ -121,7 +152,8 @@ def stream_agent(
     """POST /agent/stream and yield parsed agent events (agent_step/code/exec_result/token/done)."""
     url = f"{base_url or API_BASE_URL}/agent/stream"
     body = {"task": task, "session_id": session_id}
-    with requests.post(url, json=body, stream=True, headers={"Accept": "text/event-stream"}, timeout=timeout) as resp:
+    headers = {"Accept": "text/event-stream", **identity_headers()}
+    with requests.post(url, json=body, stream=True, headers=headers, timeout=timeout) as resp:
         resp.raise_for_status()
         yield from parse_sse_lines(resp.iter_lines(decode_unicode=True))
 
@@ -129,7 +161,10 @@ def stream_agent(
 def execute_code(code: str, session_id: str = "", base_url: str | None = None, timeout: int = 30) -> dict:
     """POST /execute → ExecuteResult dict. Maps a disabled (404) playground to a guard."""
     resp = requests.post(
-        f"{base_url or API_BASE_URL}/execute", json={"code": code, "session_id": session_id}, timeout=timeout
+        f"{base_url or API_BASE_URL}/execute",
+        json={"code": code, "session_id": session_id},
+        headers=identity_headers(),
+        timeout=timeout,
     )
     if resp.status_code == 404:
         return {"guard": "disabled", "stderr": "Playground is turned off on the server.", "ok": False}
@@ -142,10 +177,11 @@ def fix_code(code: str, stderr: str, session_id: str = "", base_url: str | None 
     resp = requests.post(
         f"{base_url or API_BASE_URL}/fix",
         json={"code": code, "stderr": stderr, "session_id": session_id},
+        headers=identity_headers(),
         timeout=timeout,
     )
     if resp.status_code == 404:
-        return {"fixed_code": code, "guard": "disabled"}
+        return {"fixed_code": code, "guard": "disabled", "message": "Playground is turned off on the server."}
     resp.raise_for_status()
     return resp.json()
 

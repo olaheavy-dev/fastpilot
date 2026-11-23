@@ -93,6 +93,7 @@ Event order (consumed by `frontend/api_client.py`):
 ```
 session → (rewrite?) → cache_status → classification → context × k → token × N → done
 refusal path:  token × N → done{refused}
+over the limit: session → token → done{rate_limited}   (15 questions a day per visitor address)
 failure path:  error → done{error}
 ```
 
@@ -105,14 +106,18 @@ Streams the agent timeline events: `session → plan → retrieve → write → 
 token × N → done{success}`. Each `run` emits an `exec_result{attempt, ok, exit_code, stdout,
 stderr, duration_ms, blocked}` (the `ok` flag mirrors `ExecuteResult.ok` so the UI doesn't have
 to re-derive success from `exit_code`). On error it always closes with a terminal
-`done{success:false}` so the UI spinner fails cleanly instead of hanging.
+`done{success:false}` so the UI spinner fails cleanly instead of hanging. Over the Agent limit
+(2/min, 5/day per visitor address) it sends `session → token → done{success:false, rate_limited:true}`
+and runs nothing. `/query` (JSON) over the Chat limit returns the message as `answer` with
+`metadata.rate_limited`. See [[component-architecture]] for how the visitor's address is worked out.
 
 ## Playground endpoints
 - `/execute` — guards in order: `playground_enabled` (else `404`) → oversize (>10 KB soft
-  cap) → per-session rate limit (3/min) → sandbox scan (import allowlist; guard value stays `denylist`); `unavailable` when the sandbox itself can't start. Returns a `guard` reason rather
+  cap) → rate limit per visitor address (3/min + 30/day, shared with `/fix`) → sandbox scan (import allowlist; guard value stays `denylist`); `unavailable` when the sandbox itself can't start. Returns a `guard` reason rather
   than a 5xx for expected rejections.
-- `/fix` — requires a healthy pipeline (`503` otherwise); prompts the LLM with the code +
-  traceback and returns extracted code.
+- `/fix` — requires a healthy pipeline (`503` otherwise, checked first so it uses up no run) → the
+  same Playground rate limit as `/execute` (over it: `guard: "rate_limit"` with a friendly `message`,
+  code echoed back) → prompts the LLM with the code + traceback and returns extracted code.
 
 ## Monitoring
 - `/health` → `{status, components{rag_pipeline, semantic_cache, conversation[, code_runner]}, executor}`. `code_runner` appears only when `EXECUTOR_MODE=runner`.
