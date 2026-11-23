@@ -25,6 +25,10 @@ the client IP either.
 - **Contradiction noted:** pages said Agent/Playground wait on issue #12; they now wait only on the VPS
   move. The original "3 runs/min/session" text stays in the decision essays as history.
 
+- **CI fix:** `redis` 8.2.0 (released 23 Nov) breaks `fakeredis` 2.40.0, failing every fakeredis
+  test; CI now installs `redis<8.2` until fakeredis catches up. The concurrent soak script switches
+  the quotas off for its run (it measures the pipeline, and all its simulated users share one address).
+
 **Next steps (replaces step 1 of the 22 Nov hand-over):** the infra phase must set the same
 `FRONTEND_PROXY_KEY` on backend and frontend, keep the backend private, and expose the frontend only
 through Cloudflare (no open port), as listed in `DEPLOY.md`. Steps 2–4 of the 22 Nov hand-over stand.

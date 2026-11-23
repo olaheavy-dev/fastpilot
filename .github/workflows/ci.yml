@@ -28,11 +28,13 @@ jobs:
           pip install ruff
           ruff check .
       - name: Install backend + test deps (curated — what the unit suite imports)
+        # redis<8.2: fakeredis 2.40.0 breaks with redis 8.2.0 (AttributeError '__closure__'
+        # in fakeredis/_clients/_setup.py). Drop the pin once fakeredis supports 8.2.
         run: |
           python -m pip install --upgrade pip
           pip install \
             fastapi uvicorn pydantic-settings python-dotenv \
-            haystack-ai qdrant-client voyageai redis \
+            haystack-ai qdrant-client voyageai "redis<8.2" \
             streamlit requests \
             pytest pytest-asyncio pytest-cov httpx asgi-lifespan fakeredis
       - name: Unit tests (hermetic — integration/live/visual excluded by default)
