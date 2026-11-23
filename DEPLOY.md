@@ -65,7 +65,7 @@ a broken build must never reach production:
 
 - In each Railway service → **Settings → enable "Wait for CI"** (check status before deploying).
   Railway then holds the deploy until the GitHub `ci.yml` checks pass on that commit. Push to `main`
-  → CI runs ruff + tests → green → Railway deploys; red → no deploy.
+  → CI runs ruff, the constraints check and the tests → green → Railway deploys; red → no deploy.
 - This reuses the existing CI as the gate, so there is **no GitHub Actions deploy workflow** to
   maintain (a `railway`-CLI deploy job would only duplicate the native integration).
 - **During a demo/recording window:** flip the service to **manual deploy** (or just don't push) so

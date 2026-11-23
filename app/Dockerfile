@@ -4,8 +4,9 @@ FROM python:3.12-slim
 WORKDIR /srv
 
 # System deps kept minimal; slim base is enough for the pure-Python stack.
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# constraints.txt pins every package to uv.lock (scripts/export_constraints.sh)
+COPY requirements.txt constraints.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 # Copy the backend package as `app/` so `import app.config` resolves.
 COPY . ./app/

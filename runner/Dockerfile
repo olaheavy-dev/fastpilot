@@ -9,8 +9,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /srv
 
+# app/constraints.txt pins every package to uv.lock (scripts/export_constraints.sh)
 COPY runner/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY app/constraints.txt ./constraints.txt
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 # Only the executor and its package imports: no config, no services, nothing that reads keys.
 COPY app/__init__.py ./app/__init__.py
