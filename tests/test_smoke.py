@@ -40,26 +40,42 @@ def test_app_factory_and_routes() -> None:
     assert create_app() is not app
 
 
-def test_container_requirements_subset_of_pyproject() -> None:
-    """Drift tripwire: every container runtime dep must exist in root pyproject.
+_IMAGE_REQUIREMENTS = ("app/requirements.txt", "frontend/requirements.txt", "runner/requirements.txt")
 
-    The container installs from app/requirements.txt while dev/CI run from the
-    root uv environment — this guards the two lists from silently diverging
-    (name-level; version floors may legitimately differ).
-    """
-    req_names = set()
-    for line in (_SUBMISSION_DIR / "app" / "requirements.txt").read_text().splitlines():
+
+def _names(lines: list[str]) -> set[str]:
+    out = set()
+    for line in lines:
         line = line.split("#", 1)[0].strip()
-        if line:
-            req_names.add(re.split(r"[\[<>=!~]", line, maxsplit=1)[0].strip().lower())
+        if line and not line.startswith("-"):
+            out.add(re.sub(r"[-_.]+", "-", re.split(r"[\[<>=!~; ]", line, maxsplit=1)[0].strip().lower()))
+    return out
 
+
+def test_container_requirements_subset_of_pyproject() -> None:
+    """Drift tripwire: every package an image installs must be a project dependency, so dev and CI
+    (which install from uv.lock) run it too."""
     pyproject = tomllib.loads((_REPO_ROOT / "pyproject.toml").read_text())
-    project_names = {
-        re.split(r"[\[<>=!~]", dep, maxsplit=1)[0].strip().lower() for dep in pyproject["project"]["dependencies"]
-    }
+    project_names = _names(pyproject["project"]["dependencies"])
+    for rel in _IMAGE_REQUIREMENTS:
+        missing = _names((_REPO_ROOT / rel).read_text().splitlines()) - project_names
+        assert not missing, (
+            f"{rel} deps missing from root pyproject: {sorted(missing)} — "
+            "add them to pyproject (and `uv lock`) or remove them from the image list."
+        )
 
-    missing = req_names - project_names
-    assert not missing, (
-        f"app/requirements.txt deps missing from root pyproject: {sorted(missing)} — "
-        "add them to pyproject (dev env) or remove from the container list."
-    )
+
+def test_every_image_requirement_is_pinned_by_constraints() -> None:
+    """pip's -c only pins packages the constraints file names: anything an image installs that is
+    missing there would install at its newest version, untested (issue #25)."""
+    pinned = {
+        re.sub(r"[-_.]+", "-", line.split("==", 1)[0].strip().lower())
+        for line in (_REPO_ROOT / "app" / "constraints.txt").read_text().splitlines()
+        if "==" in line and not line.lstrip().startswith("#")
+    }
+    for rel in _IMAGE_REQUIREMENTS:
+        unpinned = _names((_REPO_ROOT / rel).read_text().splitlines()) - pinned
+        assert not unpinned, (
+            f"{rel}: not pinned in app/constraints.txt: {sorted(unpinned)} — "
+            "run `uv lock` and scripts/export_constraints.sh"
+        )

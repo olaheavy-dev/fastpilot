@@ -16,7 +16,12 @@ Ruff, configured in `pyproject.toml`:
 - Per-file ignores: `scripts/*.py` allow `E402`/`I001` (sys.path bootstrap before imports);
   `app/prompts/templates.py` allows `E501` (prompt text is content, not code).
 - `evaluations/eval_results/` is excluded (captured evidence, not source).
-- CI installs the locked dependencies (`uv sync --frozen --all-extras`), runs `uv run ruff check .` first (fast fail), checks the image constraints against `uv.lock`, then the test suite. Keep the tree ruff-clean. After changing a dependency: `uv lock`, then `scripts/export_constraints.sh`, and commit both.
+- CI installs the locked dependencies (`uv sync --frozen --all-extras`), runs `uv run ruff check .` first (fast fail), checks the image constraints against `uv.lock`, then the test suite. Keep the tree ruff-clean. Adding or changing a runtime dependency:
+  1. add it to `pyproject.toml`;
+  2. add it to the image's `requirements.txt` (`app/`, `frontend/` or `runner/`) if that image needs it;
+  3. run `uv lock`;
+  4. run `scripts/export_constraints.sh`;
+  5. commit all of these files. CI fails if the lock or the constraints are out of step.
 
 ## Documentation style
 - **Module docstrings explain the *why* and the request/data flow**, not just the *what*

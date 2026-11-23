@@ -20,9 +20,9 @@ from tests.conftest import FakeChatGenerator
 def _install_fake_genai(monkeypatch, factory):
     """Point the app's lazy ``from haystack_integrations...google_genai import
     GoogleGenAIChatGenerator`` at ``factory``, whether or not the real integration
-    package is installed. The curated CI image ships ``haystack-ai`` but not the
-    provider integrations (the app only needs them at runtime with real creds), so
-    importing the module directly would ModuleNotFoundError there. Registering the
+    package is installed. The unit tests must not depend on the provider
+    integrations being importable or configured (they need real creds at runtime), so the
+    test never imports them directly. Registering the
     whole dotted chain in ``sys.modules`` makes the import resolve to our fake; all
     entries are undone on teardown via ``monkeypatch``."""
     chain = (

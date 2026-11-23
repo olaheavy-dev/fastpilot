@@ -12,7 +12,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 generate() {
-  uv export --frozen --no-hashes --no-dev --no-emit-project --format requirements-txt -q
+  # --locked: fail if uv.lock is out of step with pyproject.toml (run `uv lock` first).
+  # --no-header: compare versions only, not the uv command line.
+  uv export --locked --no-header --no-hashes --no-emit-project --format requirements-txt -q
 }
 
 targets=(app/constraints.txt frontend/constraints.txt)  # the runner image uses app/constraints.txt
