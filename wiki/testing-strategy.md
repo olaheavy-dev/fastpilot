@@ -48,7 +48,10 @@ real `ConversationService` on **`fakeredis`** — plus a `build_client(...)` hel
 - **SSE contract round-trip** (`test_sse_parser`) — the frontend parser must consume exactly
   what the backend emits; `app/models.py` is the shared source of truth (see [[endpoint-summary]]).
 - **Requirements drift tripwire** (`test_smoke`) — every dep in `app/requirements.txt` must
-  exist in `pyproject.toml`, so the container image and dev env can't silently diverge.
+  exist in `pyproject.toml`, so the container image and dev env can't silently diverge. Versions
+  are pinned too: the images install with `-c constraints.txt` generated from `uv.lock`, and CI
+  fails if those files drift (`scripts/export_constraints.sh --check`). CI installs with
+  `uv sync --frozen --all-extras`, so it tests the locked versions the images ship (issue #25).
 - **Sandbox scan** (`test_executor`, `test_security`) — import allowlist, a regression test per known escape (reflection, shell, string-eval,
   `getattr`/`open`), network, and resource overruns are all asserted blocked.
 - **Resilience** — degraded paths (no Redis, no keys) return `degraded`/structured guards,

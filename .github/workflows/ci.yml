@@ -22,23 +22,21 @@ jobs:
           cache-dependency-path: |
             app/requirements.txt
             pyproject.toml
-      # Lint first — needs no project deps and catches the common failures in seconds.
-      - name: Ruff
-        run: |
-          pip install ruff
-          ruff check .
-      - name: Install backend + test deps (curated — what the unit suite imports)
-        # redis<8.2: fakeredis 2.40.0 breaks with redis 8.2.0 (AttributeError '__closure__'
-        # in fakeredis/_clients/_setup.py). Drop the pin once fakeredis supports 8.2.
+      # Install exactly what uv.lock pins (issue #25): CI tests the versions local work and the
+      # Docker images use. uv itself is pinned so the lock format can't drift under CI.
+      - name: Install uv and the locked dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install \
-            fastapi uvicorn pydantic-settings python-dotenv \
-            haystack-ai qdrant-client voyageai "redis<8.2" \
-            streamlit requests \
-            pytest pytest-asyncio pytest-cov httpx asgi-lifespan fakeredis
+          pip install uv==0.13.7
+          uv sync --frozen --all-extras
+      # Lint first: catches the common failures in seconds.
+      - name: Ruff
+        run: uv run ruff check .
+      # The images install with -c constraints.txt; fail if those files drift from uv.lock.
+      - name: Image constraints match uv.lock
+        run: scripts/export_constraints.sh --check
       - name: Unit tests (hermetic — integration/live/visual excluded by default)
-        run: pytest --cov=app --cov=runner --cov-report=term-missing --cov-fail-under=90
+        run: uv run pytest --cov=app --cov=runner --cov-report=term-missing --cov-fail-under=90
 
   # Mirror the in-repo wiki/ to the GitHub Wiki after tests pass. Push-to-main only
   # (PRs — incl. forks — can't get a write token), and only if tests are green.

@@ -3,8 +3,9 @@ FROM python:3.12-slim
 
 WORKDIR /srv
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# constraints.txt pins every package to uv.lock (scripts/export_constraints.sh)
+COPY requirements.txt constraints.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -c constraints.txt
 
 COPY . ./
 

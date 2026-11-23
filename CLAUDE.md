@@ -13,7 +13,7 @@ in [`wiki/`](wiki/index.md) before substantial work — start with `wiki/onboard
 - Follow `wiki/coding-conventions.md` (typing, ruff `E/F/I/B` @ line-length 120, app-factory +
   DI, degrade-don't-crash, secrets default to `""`).
 - Follow `wiki/testing-strategy.md`: default run is hermetic (`uv run pytest`); keep the
-  **90% coverage gate** green; CI runs `ruff check .` then the suite.
+  **90% coverage gate** green; CI installs from `uv.lock`, runs `ruff check .`, checks the image constraints (`scripts/export_constraints.sh --check`), then the suite.
 
 ## Wiki maintenance rules (keep `wiki/` alive)
 1. **After any significant implementation work, update the relevant wiki page(s).**

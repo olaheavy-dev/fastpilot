@@ -5,6 +5,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-23 — Images and CI pinned to uv.lock (issue #25)
+
+While measuring memory for infra Phase 22a, every Chat question in a freshly built backend image failed with Gemini `400 INVALID_ARGUMENT ... Use api version v1beta`. The images install `app/requirements.txt` and `frontend/requirements.txt`, which only set minimum versions, so a build picked up untested major versions (haystack-ai 3.5.0 vs 2.30.2 tested, google-genai-haystack 7.2.2 vs 4.4.1, qdrant-haystack 13.2.0 vs 10.3.0, voyage-embedders-haystack 3.0.0 vs 1.10.0, Streamlit 1.67.0 vs 1.58.0). CI did the same, so the tests never saw what the images ran.
+- **Added:** `scripts/export_constraints.sh` writes `app/constraints.txt` and `frontend/constraints.txt` from `uv.lock` (`--check` mode for CI). All three Dockerfiles install with `-c constraints.txt`; each image keeps its own package list.
+- **CI:** installs uv 0.13.7 and runs `uv sync --frozen --all-extras`, then `uv run ruff`, the constraints check and `uv run pytest`: the same versions as local work and the images. The `redis<8.2` stopgap is gone (the lock pins redis 8.0.0 and fakeredis 2.36.2).
+- **Updating a dependency now:** change `pyproject.toml`, `uv lock`, then `scripts/export_constraints.sh`, and commit all three.
+
 ## 2026-11-23 — Rate limits per visitor address (issue #12)
 
 The Playground limit counted per `session_id`, which the browser chooses, so a client could skip it.
