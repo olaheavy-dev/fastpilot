@@ -1,0 +1,8 @@
+# Used only by tests/test_runner_integration.py, on top of docker-compose.yml. Those tests prove the
+# runner's isolation and make many /execute calls from one address; since issue #12 the limit
+# counts per address (no session id can reset it), so it is switched off for this test stack only.
+services:
+  backend:
+    environment:
+      PLAYGROUND_RATE_PER_MIN: "0"
+      PLAYGROUND_RATE_PER_DAY: "0"

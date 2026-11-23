@@ -56,3 +56,7 @@ dogfood/
 # Secrets
 **/.streamlit/secrets.toml
 secrets.toml
+
+# Production secrets (deploy/): real env files and the Redis config are never committed
+deploy/*.env
+deploy/redis.conf

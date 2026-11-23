@@ -14,6 +14,8 @@ so both propagate onto every chunk — the merge the original step should have d
 Usage (from repo root, with live QDRANT/VOYAGE keys in .env):
     uv run python scripts/07_reindex_production.py --full
     uv run python scripts/07_reindex_production.py --test    # 5 docs/source
+
+Outside the capstone repository, set FASTPILOT_CORPUS_ROOT to it first.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import os
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -30,7 +33,10 @@ from haystack import Document
 
 NEW_COLLECTION = "rag_accelerator_capstone_final"
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+# The course corpus and the week-3 indexing code live in the capstone repository, next to
+# which FastPilot was first checked out. FASTPILOT_CORPUS_ROOT points at that repository when
+# FastPilot lives elsewhere (e.g. ~/source/code/rag/rag-accelerator-capstone).
+REPO_ROOT = Path(os.environ.get("FASTPILOT_CORPUS_ROOT") or Path(__file__).resolve().parent.parent.parent).expanduser()
 W3_INDEXING = REPO_ROOT / "week-3" / "scripts" / "indexing"
 W3_SCRIPTS = REPO_ROOT / "week-3" / "scripts"
 W1BC_SCRIPTS = REPO_ROOT / "week-1-bettercorpus" / "scripts"

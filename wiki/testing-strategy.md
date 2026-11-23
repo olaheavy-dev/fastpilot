@@ -20,7 +20,7 @@ opt-in via markers (`addopts = -m 'not integration and not live and not visual'`
 | Marker | Needs | Run with |
 |---|---|---|
 | _(default)_ | nothing | `uv run pytest` |
-| `integration` | local redis-stack container; `test_runner_integration.py` needs Docker (builds and runs the runner image: no network, no keys, read-only FS, slot isolation, leftovers killed, stopped runner gives `unavailable`) | `docker compose --profile test up -d redis-test` then `-m integration` |
+| `integration` | a local Redis with search (redis-stack, or Redis 8: all three pass on both, 23 Nov 2026); `test_runner_integration.py` needs Docker and starts its stack with `tests/fixtures/compose.no-rate-limit.yml`, because the per-address limit (#12) would block its many runs (builds and runs the runner image: no network, no keys, read-only FS, slot isolation, leftovers killed, stopped runner gives `unavailable`) | `docker compose --profile test up -d redis-test` then `-m integration` |
 | `live` | real Qdrant/Voyage/Gemini/Opik keys | `-m live` |
 | `visual` | Playwright + chromium | `playwright install chromium` then `-m visual` |
 | `slow` | nothing (just long, e.g. executor timeouts) | included by default |

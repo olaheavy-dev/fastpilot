@@ -23,7 +23,7 @@ example repos (the full-stack template), and GitHub issues/discussions — and *
 docs doesn't prove understanding. The only way to verify understanding is to run code,
 which means leaving the docs. FastPilot pulls retrieval + generation + a code sandbox into
 one loop so a learner can ask, watch working code get produced, and then tinker. Full
-framing — the problem, the user, and the corpus (514 docs → 4,232 chunks, 4 sources) — is in
+framing — the problem, the user, and the corpus (514 docs → 4,232 chunks, 4 sources; the 23 Nov 2026 production rebuild has 4,241) — is in
 the [scoping essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs/scoping.md).
 
 ## Tech stack
@@ -32,10 +32,10 @@ the [scoping essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs
 |---|---|---|
 | Frontend | **Streamlit** | Three views (Chat / Agent / Playground); pure-Python SSE client. |
 | Backend | **FastAPI** | App-factory pattern; SSE streaming; graceful degradation. |
-| Vector DB | **Qdrant Cloud** | Hybrid (dense + sparse/BM25) retrieval with native prefetch. |
+| Vector DB | **Qdrant** (self-hosted on the VPS since Nov 2026; Qdrant Cloud before) | Hybrid (dense + sparse/BM25) retrieval with native prefetch. |
 | Embeddings + rerank | **Voyage AI** | `voyage-4-lite` (2048-d dense) + `rerank-2.5`. |
 | Generation | **Google Gemini** | `gemini-2.5-flash` (+ `-flash-lite` fallback). |
-| Memory + cache | **Redis Cloud** | Conversation sliding window + HNSW semantic cache (RediSearch). |
+| Memory + cache | **Redis 8** (self-hosted on the VPS since Nov 2026; Redis Cloud before) | Conversation sliding window + HNSW semantic cache (RediSearch). |
 | Observability | **Opik / Comet** | Tracing, prompt versioning, feedback scores, online-eval rule. |
 | Packaging / deploy | **uv · Docker** | Three services (backend, frontend, runner); the original Railway deploy is offline. See `DEPLOY.md`. |
 
@@ -56,10 +56,10 @@ flowchart LR
 
     AG -- Unix socket --> RN[Runner sidecar<br/>no network · no keys<br/>read-only FS]
 
-    RP --> QD[(Qdrant Cloud<br/>hybrid retrieval)]
+    RP --> QD[(Qdrant<br/>hybrid retrieval)]
     RP --> VO[Voyage<br/>embed + rerank-2.5]
     RP --> GM[Gemini 2.5 Flash<br/>generate]
-    SC --> RD[(Redis Cloud)]
+    SC --> RD[(Redis 8)]
     CV --> RD
     BE --> OP[[Opik / Comet<br/>tracing · prompts · feedback]]
 ```

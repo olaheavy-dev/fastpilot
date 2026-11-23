@@ -52,6 +52,14 @@ def test_welcome_renders_chips(at):
     assert any("Write & run" in lbl for lbl in labels)
 
 
+def test_chat_page_shows_the_opik_privacy_note(at):
+    """Founder, 23 Nov 2026: Opik on for the public site, with a short privacy note under the Chat box."""
+    at.run()
+    text = " ".join(m.value for m in at.markdown)
+    assert "Questions and answers are recorded with Opik to improve FastPilot." in text
+    assert "Answers are AI-generated from the FastAPI corpus and may contain errors." in text  # unchanged
+
+
 def test_sending_query_appends_user_and_assistant(at):
     at.run()
     at.chat_input[0].set_value("How do I add JWT auth?").run()
@@ -185,6 +193,23 @@ def test_agent_mode_runs_and_stores_run(monkeypatch):
     assert run["final"]["success"] is True
     assert run["code_attempts"][1].startswith("from fastapi")
     assert "validates input" in run["answer"]
+
+
+def test_agent_and_playground_pages_show_the_opik_privacy_note(monkeypatch):
+    """Founder, 23 Nov 2026: Agent and Playground text also goes to Opik, so both pages say so."""
+    import playground_view
+
+    monkeypatch.setattr(playground_view, "_HAS_MONACO", False)
+    expected = {
+        "▶ Agent": "Tasks, code and answers are recorded with Opik to improve FastPilot.",
+        "⌨ Playground": "Code and error messages you send to Fix with AI are recorded with Opik to improve FastPilot.",
+    }
+    for mode, sentence in expected.items():
+        at = AppTest.from_file(_APP, default_timeout=30)
+        at.session_state["mode"] = mode
+        at.run()
+        assert not at.exception
+        assert sentence in " ".join(m.value for m in at.markdown), mode
 
 
 def test_playground_fallback_editor_runs(monkeypatch):

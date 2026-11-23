@@ -1,11 +1,12 @@
-# Deploying FastPilot to Railway
+# Deploying FastPilot
 
-> **Status 2026-11-22:** Railway is offline. FastPilot is moving to the founder's VPS after infra PR #85.
-> The Railway sections below are **historical**. Do not use them for a new deployment.
+> **Status 2026-11-23:** production moves to the founder's VPS through infra Phase 22: the stack is
+> `deploy/docker-compose.prod.yml` (see "Production on the VPS" below). Railway is offline, and the
+> Railway sections below are **historical**. Do not use them for a new deployment.
 
 ## Services
 
-FastPilot now runs as **three services**:
+FastPilot's own code runs as **three services** (production adds Qdrant and Redis, see below):
 
 | Service | Image | Role |
 |---|---|---|
@@ -36,6 +37,26 @@ that to work on a public host:
   the frontend to `127.0.0.1:8501:8501` (or publish no port at all behind a tunnel), for example in a
   compose override file. Otherwise anyone can reach Streamlit directly with a made-up
   `CF-Connecting-IP` on each request and get a fresh limit every time.
+
+## Production on the VPS (infra Phase 22)
+
+`deploy/docker-compose.prod.yml` is the production stack: `fastpilot-prod-{backend,frontend,runner,qdrant,redis}`,
+no published ports (Caddy reaches the frontend on `caddy_net`), Qdrant 1.18 and Redis 8 pinned by digest, a
+memory cap on every service (1,728 MB in total) and one env file per service, so the internet-facing frontend
+holds no API keys. Copy the `deploy/*.env.example` files and `deploy/redis.conf.example`, fill them in, and never
+commit them (`.gitignore` covers `deploy/*.env` and `deploy/redis.conf`). The infra repository's
+`deploy-fastpilot.sh` replaces `__FASTPILOT_TAG__` with a `sha-<commit>` tag, checks the file and deploys it.
+
+**Index.** Build it on the Mac (the corpus lives in the capstone repository):
+`FASTPILOT_CORPUS_ROOT=~/source/code/rag/rag-accelerator-capstone uv run python scripts/07_reindex_production.py --full`
+into a local Qdrant, then take a snapshot. Qdrant and Redis sit on an internal network, so the snapshot is
+restored from inside: copy it into `/qdrant/snapshots/<collection>/` and call
+`PUT /collections/<collection>/snapshots/recover` with `file://` and the checksum, from the backend container.
+The 23 Nov 2026 snapshot (4,241 points, SHA-256 `762a6402…`) is kept on the Mac in
+`~/source/code/portfolio/fastpilot-index-snapshots/`.
+
+**Local measuring:** `docker network create caddy_net` once, then
+`docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.local.yml up -d --build`.
 
 ## Historical: Railway (offline)
 
@@ -135,13 +156,10 @@ The images are to be **public** (founder, 23 Nov 2026: "Public (Recommended)"): 
 public and the images hold no secrets, so the server pulls them without a token. Production deploys
 pin a `sha-<short-sha>` tag (infra Phase 22); `:main` is for local use only.
 
-GitHub creates every new package **private**, whatever the repository's visibility
-([GitHub: package visibility](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility)).
-So, once, after the first successful publish to `ghcr.io/olaheavy-dev/`, an organisation owner opens
-each of the three packages (`fastpilot-backend`, `fastpilot-frontend`, `fastpilot-runner`) →
-**Package settings** → **Change visibility** → **Public**. GitHub does not let a public package go
-back to private. Then check with a logged-out pull, for example
-`docker logout ghcr.io; docker pull ghcr.io/olaheavy-dev/fastpilot-backend:main`.
+The three packages came out **public** on the first publish (23 Nov 2026): they are linked to this
+public repository and took its visibility, so no settings change was needed. Checked with a logged-out
+pull: `DOCKER_CONFIG=$(mktemp -d) docker pull --platform linux/amd64 ghcr.io/olaheavy-dev/fastpilot-backend:main`.
+The images are built for `linux/amd64` (the server) only.
 
 On pull requests, the workflow builds all three images without pushing them. On push to `main`, or a
 manual workflow dispatch, it publishes:
