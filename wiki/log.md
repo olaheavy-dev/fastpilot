@@ -5,6 +5,28 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — Session hand-over (open items, next steps, founder to-dos)
+
+**Merged since the 22 Nov hand-over:** #24 rate limits per visitor address (issue #12), #26 images under `ghcr.io/olaheavy-dev` (public), #27 images and CI pinned to `uv.lock` (#25), #28 Phase 22a production stack; infra #97 (Phase 22 plan), #100 and the `fastpilot-staging` retirement, #110 (Phase 22b helpers).
+
+**Current state**
+- Nothing is public yet. Staging is retired. Production is ready to deploy with infra's `deploy-fastpilot.sh` (Phase 22c), from `~/source/code/infra/work/fastpilot-prod/` (env files filled and checked; never committed).
+- The index snapshot (4,241 chunks, SHA-256 `762a6402…`) is on the Mac in `~/source/code/portfolio/fastpilot-index-snapshots/`.
+- **Model:** `gemini-2.5-flash` is retired for new projects (rerouted 1 Dec 2026). Production needs `gemini-3.5-flash-lite` or `gemini-3.8-flash` (`LLM_MODEL` and `LLM_FALLBACK_MODEL` in `backend.env`; no code change). Agent eval: both 10/10. RAG eval: 3.5 Flash Lite 0.908 / 0.935 (passes). 3.8 Flash's RAG run had not finished when this was written; if it is missing, rerun with the two-key wrapper described below.
+- **Corpus:** from 14 May 2026, only on the Mac (capstone repo, not in git). The refresh is designed and planned (#29).
+
+**Next steps, in order**
+1. **Pick the production model** from the eval results (re-run 3.8 Flash's RAG eval if needed: `scripts/05_run_rag_eval.py` with `FASTPILOT_CORPUS_ROOT`, FastPilot's answers on the `fastpilot-prod` key, judge `gemini-3.8-flash`); set `LLM_MODEL` and a different `LLM_FALLBACK_MODEL` (so one overloaded model can't take Chat down).
+2. **Phase 22c, go live** (infra plan): containers stage → index restore → runner proofs → DNS record PR → site stage → checks; then 22d (48 h watch) and 22e (uptime URL, infra #102).
+3. **Corpus refresh build** (#29): subagent-driven, starting next session, per the plan; Part 4 preserves May's corpus as `corpus-2026-05-14`.
+
+**Founder to-dos**
+- Spend caps: Gemini (`fastpilot-prod` project: budget alert and a daily request quota) and Voyage (usage limit).
+- Opik: read the `fastpilot` project's trace retention and say it, to record here.
+- Choose the production model when the results are in.
+
+**Open issues worth knowing:** #23 (compose ports; handled by the production file), #29 (refresh), infra #102 (re-enable uptime), #105 closed, #109 (Vestagraph trap), agent-workflows #56 (one worktree per session).
+
 ## 2026-11-23 — Production stack, index snapshot and measurements (infra Phase 22a)
 
 - **Index:** rebuilt from the capstone corpus into a local Qdrant 1.18: 514 documents, **4,241 chunks** (4,232 before; the chunker now makes 9 more), all with `file_path` and `category`. Voyage cost about $0.04 (within the free allowance). Snapshot kept on the Mac with its SHA-256; restore proven on arm64 and on amd64 (the server's chip type). `scripts/07_reindex_production.py` takes `FASTPILOT_CORPUS_ROOT`.
