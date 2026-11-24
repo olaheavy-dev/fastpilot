@@ -44,8 +44,9 @@ class Settings(BaseSettings):
 
     # --- LLM: Google Gemini (D5/D8) ---
     google_api_key: str = ""
-    # Founder, 23 Nov 2026: "3.8 Flash, 3.5 Lite fallback". 2.5 Flash is gone for new projects (rerouted
-    # 1 Dec 2026). A different fallback model means one overloaded model can't take Chat down.
+    # Founder, 24 Nov 2026: "3.8 Flash, 3.5 Lite fallback (Recommended)". 2.5 Flash is gone for new projects
+    # (rerouted 1 Dec 2026). A different fallback model keeps answer generation going when one model is
+    # overloaded; the router and the query rewriter use the main model only and degrade instead (#31).
     llm_model: str = "gemini-3.8-flash"
     llm_fallback_model: str = "gemini-3.5-flash-lite"
 
