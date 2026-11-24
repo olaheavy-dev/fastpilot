@@ -15,6 +15,7 @@
 ## Global Constraints
 
 - Collection name `rag_accelerator_capstone_final`; named vectors `text-dense` (2048, cosine) and `text-sparse`; dense model `voyage-4-lite`; sparse model `Qdrant/bm25`; chunker: the existing AST code chunker + markdown-aware recursive splitter, unchanged.
+- One source for index settings: the indexing reads the collection name, `voyage_embed_model`, `voyage_dimension` and `sparse_model` from `app.config.Settings`, and the vector names from one module (`app/components/vector_names.py`: `DENSE = "text-dense"`, `SPARSE = "text-sparse"`) that the retriever imports too. Every version records these five values plus the chunker version as its **settings fingerprint** (`report.json` and its `index.json` entry, field `index_settings`); the server never installs a version whose fingerprint differs from what the running backend reports.
 - Qdrant image `qdrant/qdrant:v1.18.0@sha256:b3063c673f3973877c038eeecc392bad5011f072ee7892b56c9a8e204a3bdea9`.
 - Judge model `gemini-3.8-flash`, a setting (`JUDGE_MODEL`), recorded with every score.
 - Gate: RAG faithfulness ≥ 0.90 and answer coverage ≥ 0.90; Agent success with self-correction ≥ 0.80; dip rule: block only if worse on **both** of two side-by-side runs: RAG faithfulness or coverage lower by more than 0.03, or Agent success lower by 2 or more tasks.
@@ -187,9 +188,9 @@
 
 **Interfaces:**
 - Consumes: `corpus.build.load_documents`, `corpus.categorise.categorise`, `corpus.index.build_index`.
-- Produces: `build.run(cfg, previous) -> Manifest` (writes `documents.jsonl`; counts per source and per category); `index.run(cfg, previous, *, qdrant_url, api_key) -> Manifest` (writes the snapshot and `.sha256`; `counts["chunks"]`).
+- Produces: `build.run(cfg, previous) -> Manifest` (writes `documents.jsonl`; counts per source and per category); `index.run(cfg, previous, *, qdrant_url, api_key) -> Manifest` (writes the snapshot and `.sha256`; `counts["chunks"]`; `details["index_settings"]`, the fingerprint in Global Constraints); `app/components/vector_names.py`; `/health` gains `index_settings` (the same five values plus the chunker version, from the running settings; no secrets).
 
-- [ ] **Step 1: Write the failing tests:** `test_every_document_gets_a_category`; `test_category_shift_beyond_margin_fails_without_explanation`; `test_file_path_is_stable_and_safe` (Review Focus 5: titles with non-ASCII, slashes, 300 characters → the same `file_path` on two runs, no `/` inside a segment, ≤ 200 characters); `test_chunk_count_guard` (±25% from previous fails; a fake indexer returns counts).
+- [ ] **Step 1: Write the failing tests:** `test_every_document_gets_a_category`; `test_category_shift_beyond_margin_fails_without_explanation`; `test_file_path_is_stable_and_safe` (Review Focus 5: titles with non-ASCII, slashes, 300 characters → the same `file_path` on two runs, no `/` inside a segment, ≤ 200 characters); `test_chunk_count_guard` (±25% from previous fails; a fake indexer returns counts); `test_index_settings_come_from_app_settings` (overriding `VOYAGE_EMBED_MODEL` in the environment changes the fingerprint and the embedder used); `test_health_reports_index_settings` (equal to the index stage's fingerprint for the same settings); `test_retriever_and_indexer_share_vector_names`.
 - [ ] **Step 2–4:** Run (FAIL), implement, run (PASS).
 - [ ] **Step 5: Commit** `git commit -m "corpus: build and index stages"`.
 
@@ -298,6 +299,7 @@
   - `cache_cleared_after_install_and_after_rollback` (a `redis-cli` call with `REDISCLI_AUTH` from `redis.conf` and the cache key pattern; never the password on a command line);
   - `timer_is_daily`;
   - `failed_tag_not_retried` (a tag in `INDEX_FAILED_RELEASE` is skipped until a newer release appears);
+  - `settings_mismatch_refused` (the version's `index_settings` differ from the backend's `/health` → nothing downloaded or restored, the tag recorded in `INDEX_FAILED_RELEASE`, a journal line naming the differing fields);
   - `suffix_ordering` (`corpus-2026-12-02.2` installed over `corpus-2026-12-02`);
   - `wrong_collection_name_refused` (a file not named `rag_accelerator_capstone_final.snapshot` is never restored);
   - `retrieval_health_check_failure_rolls_back` (the backend's retrieval check returns no sources → previous snapshot restored).
