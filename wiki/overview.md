@@ -34,7 +34,7 @@ the [scoping essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs
 | Backend | **FastAPI** | App-factory pattern; SSE streaming; graceful degradation. |
 | Vector DB | **Qdrant** (self-hosted on the VPS since Nov 2026; Qdrant Cloud before) | Hybrid (dense + sparse/BM25) retrieval with native prefetch. |
 | Embeddings + rerank | **Voyage AI** | `voyage-4-lite` (2048-d dense) + `rerank-2.5`. |
-| Generation | **Google Gemini** | `gemini-2.5-flash` (+ `-flash-lite` fallback). |
+| Generation | **Google Gemini** | `gemini-3.8-flash` (+ `gemini-3.5-flash-lite` fallback; was 2.5 Flash until Nov 2026). |
 | Memory + cache | **Redis 8** (self-hosted on the VPS since Nov 2026; Redis Cloud before) | Conversation sliding window + HNSW semantic cache (RediSearch). |
 | Observability | **Opik / Comet** | Tracing, prompt versioning, feedback scores, online-eval rule. |
 | Packaging / deploy | **uv · Docker** | Three services (backend, frontend, runner); the original Railway deploy is offline. See `DEPLOY.md`. |
@@ -58,7 +58,7 @@ flowchart LR
 
     RP --> QD[(Qdrant<br/>hybrid retrieval)]
     RP --> VO[Voyage<br/>embed + rerank-2.5]
-    RP --> GM[Gemini 2.5 Flash<br/>generate]
+    RP --> GM[Gemini 3.8 Flash<br/>generate]
     SC --> RD[(Redis 8)]
     CV --> RD
     BE --> OP[[Opik / Comet<br/>tracing · prompts · feedback]]

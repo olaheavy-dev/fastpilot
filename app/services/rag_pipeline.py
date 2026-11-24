@@ -3,7 +3,7 @@
 Retrieval (Haystack pipeline): VoyageTextEmbedder + FastembedSparseTextEmbedder →
 QdrantHybridRetriever (prefetch 100/100 → RRF top-50) → VoyageReranker (→ top-10).
 Generation: direct Gemini call with the router-selected prompt; primary
-``gemini-2.5-flash`` with a ``flash-lite`` fallback (retry once on 503, fall back
+``gemini-3.8-flash`` with a ``gemini-3.5-flash-lite`` fallback (retry once on 503, fall back
 immediately on 429). ``generate_stream`` streams tokens through an ``asyncio.Queue``.
 
 Resilient init: if creds are missing or the pipeline can't be built, the service

@@ -5,6 +5,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — Production model: gemini-3.8-flash, with gemini-3.5-flash-lite as fallback
+
+`gemini-2.5-flash` is no longer available to new projects (and is rerouted for everyone from 1 Dec 2026), so production needs a current model. Founder, 24 Nov 2026: "3.8 Flash, 3.5 Lite fallback (Recommended)", after both were evaluated: RAG (judge `gemini-3.8-flash`, gate 0.90) 3.8 Flash 0.906 / 0.935, 3.5 Flash Lite 0.908 / 0.935; Agent (10 tasks) both 10/10, first try 10/10 and 9/10. A *different* fallback model means one overloaded model can't take Chat down (both were briefly overloaded on 23 Nov).
+- **Changed:** `app/config.py` defaults `llm_model` and `llm_fallback_model`, `.env.example`, and the model named in `README.md`, `CLAUDE.md`, [[overview]] and [[component-architecture]]. No code path changed: the pinned `google-genai` 2.9 calls the new models as before.
+- **Also:** `scripts/05_run_rag_eval.py` accepts `FASTPILOT_CORPUS_ROOT` (the Week-4 instruments live in the capstone repository until the corpus refresh moves them, #29).
+- The decision and the full results are recorded in `docs/production-decisions.md`. Noticed, not changed (#31): the cost estimate still uses 2.5 Flash's price per call, and the router and rewriter have no fallback model.
+
 ## 2026-11-23 — Production stack, index snapshot and measurements (infra Phase 22a)
 
 - **Index:** rebuilt from the capstone corpus into a local Qdrant 1.18: 514 documents, **4,241 chunks** (4,232 before; the chunker now makes 9 more), all with `file_path` and `category`. Voyage cost about $0.04 (within the free allowance). Snapshot kept on the Mac with its SHA-256; restore proven on arm64 and on amd64 (the server's chip type). `scripts/07_reindex_production.py` takes `FASTPILOT_CORPUS_ROOT`.
