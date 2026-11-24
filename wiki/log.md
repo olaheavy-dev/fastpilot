@@ -9,7 +9,8 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 - **#33 merged** after five Codex rounds (the last clean). Plan follow-ups open: #34, #35 (before Part 2), #36 (before Part 5).
 - **Voyage:** its docs describe no spending cap, only throughput limits; its dashboard has a monthly budget alert (email only), which the founder set to $7.50. Founder, 24 Nov 2026: "Accept no cap, watch the bill"; recorded in `docs/production-decisions.md`. The status file's go-live to-do is now the Gemini cap only. Corrects the earlier to-do "Voyage (usage limit)", which assumed a setting Voyage does not document.
-- Pages touched: `docs/planning/status.md`, `docs/production-decisions.md`.
+- **Gemini:** AI Studio monthly spend cap set to $10 on `fastpilot-prod` (it stops requests; no daily quota, founder: "No, monthly is enough (Recommended)"). The refresh project's to-do now says a monthly spend cap too. Go-live is no longer blocked.
+- Pages touched: `docs/planning/status.md`, `docs/production-decisions.md`, the refresh spec and plan (spend cap wording).
 
 ## 2026-11-24 — Refresh plan: Codex round 4 on #33
 
