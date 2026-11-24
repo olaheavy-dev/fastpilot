@@ -7,6 +7,8 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ## 2026-11-24 — Session hand-over (open items, next steps, founder to-dos)
 
+**Status file added:** [`docs/planning/status.md`](../docs/planning/status.md) now holds the current state, planned work (with a diagram) and founder to-dos; entries here keep the history.
+
 **Merged since the 22 Nov hand-over:** #24 rate limits per visitor address (issue #12), #26 images under `ghcr.io/olaheavy-dev` (public), #27 images and CI pinned to `uv.lock` (#25), #28 Phase 22a production stack; infra #97 (Phase 22 plan), #100 and the `fastpilot-staging` retirement, #110 (Phase 22b helpers).
 
 **Current state**
@@ -20,7 +22,6 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 2. **Phase 22c, go live** (infra plan): containers stage → index restore → runner proofs → DNS record PR → site stage → checks; then 22d (48 h watch) and 22e (uptime URL, infra #102).
 3. **Corpus refresh build** (#29): subagent-driven, starting next session, per the plan; Part 4 preserves May's corpus as `corpus-2026-05-14`. Storage: a private R2 bucket (not GitHub Releases); versions kept: the 3 newest + the bootstrap.
 4. **MCP server** (#30): local and hosted, after the refresh.
-5. When the model is chosen, update `wiki/overview.md` and `wiki/component-architecture.md` (they still name `gemini-2.5-flash`).
 
 **Founder to-dos**
 - Spend caps: Gemini (`fastpilot-prod` project: budget alert and a daily request quota) and Voyage (usage limit).
