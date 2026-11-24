@@ -30,13 +30,13 @@ flowchart LR
     D --> QD[(Qdrant hybrid<br/>prefetch 100 + 100)]
     S --> QD
     QD --> RRF[RRF fusion] --> RK[Voyage rerank-2.5<br/>top 50 → top 10]
-    RK --> CTX[10 contexts] --> GEN[Gemini 2.5 Flash<br/>grounded + cited answer]
+    RK --> CTX[10 contexts] --> GEN[Gemini 3.8 Flash<br/>grounded + cited answer]
 ```
 
 - Reuses the cache lookup's dense embedding so retrieval never re-embeds the same query.
 - `generate_stream()` returns an `asyncio.Queue` of tokens for SSE; a background producer
   task is cancelled if the client disconnects.
-- Falls back to `gemini-2.5-flash-lite` on the primary model's failure (`fallback_used`).
+- Falls back to `gemini-3.5-flash-lite` on the primary model's failure (`fallback_used`); the main model is `gemini-3.8-flash`.
 - `is_healthy()` gates `/health` and the `/fix` endpoint.
 
 > **Why this design (evidence, not a default).** T1b was picked by a 4-way pairwise bake-off:

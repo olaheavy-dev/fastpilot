@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -35,7 +36,10 @@ from statistics import mean
 import _bootstrap  # noqa: F401  (final-submission on path + trust store)
 
 # Reuse the EXACT Week-4 judge + metric code so the comparison is apples-to-apples.
-_W4 = Path(__file__).resolve().parents[2] / "week-4" / "scripts"
+# The Week-4 instruments live in the capstone repository; FASTPILOT_CORPUS_ROOT points at it when
+# FastPilot is checked out elsewhere (as for scripts/07_reindex_production.py).
+_CORPUS_ROOT = Path(os.environ.get("FASTPILOT_CORPUS_ROOT") or Path(__file__).resolve().parents[2]).expanduser()
+_W4 = _CORPUS_ROOT / "week-4" / "scripts"
 sys.path.insert(0, str(_W4))
 import _eval_common as ec  # noqa: E402
 from run_decomposed_judge import judge_answer  # noqa: E402

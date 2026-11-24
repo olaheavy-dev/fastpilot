@@ -44,8 +44,10 @@ class Settings(BaseSettings):
 
     # --- LLM: Google Gemini (D5/D8) ---
     google_api_key: str = ""
-    llm_model: str = "gemini-2.5-flash"
-    llm_fallback_model: str = "gemini-2.5-flash-lite"
+    # Founder, 23 Nov 2026: "3.8 Flash, 3.5 Lite fallback". 2.5 Flash is gone for new projects (rerouted
+    # 1 Dec 2026). A different fallback model means one overloaded model can't take Chat down.
+    llm_model: str = "gemini-3.8-flash"
+    llm_fallback_model: str = "gemini-3.5-flash-lite"
 
     # --- Retrieval models (D1) ---
     voyage_api_key: str = ""
