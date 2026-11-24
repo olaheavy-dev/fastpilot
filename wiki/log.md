@@ -17,6 +17,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
   colours for both themes; the forced overrides in `styles.py` are deleted; text no longer fades through opacity (the running-step pulse animation stays); light `--fp-muted` darkened from `#78716C` to `#736C67` (4.73:1 on the badge surface).
 - New `tests/test_theme.py` (contrast and token completeness, both themes); [[component-architecture]]
   gains a "Frontend themes" section.
+- Found by screenshotting full answers: the Playground editor (streamlit-monaco) kept Monaco's light syntax
+  colours on the dark page, because its "streamlit" theme always uses base `vs`. Dark mode now asks for
+  `vs-dark` (`playground_view._monaco_theme`). The founder also reported the "· N sources" caption
+  showing only on hover: on the live site it is drawn in the other theme's text colour when the toggle
+  and system disagree; fixed by the same change.
+- Founder, 24 Nov 2026: "Stay on Streamlit (Recommended)" (no React rewrite); recorded in
+  `docs/production-decisions.md`.
 
 ## 2026-11-24 — Live: fastpilot.olaheavy.dev (Phase 22c)
 

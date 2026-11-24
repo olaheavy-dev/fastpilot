@@ -121,3 +121,22 @@ def test_no_text_is_faded_with_opacity():
     css = re.sub(r"@keyframes fp-pulse \{.*?\}\s*\}", "", styles._CSS, flags=re.S)
     faded = [line.strip() for line in css.splitlines() if "opacity" in line]
     assert not faded, f"rules that fade with opacity: {faded}"
+
+
+@pytest.mark.parametrize(
+    ("streamlit_theme", "expected"),
+    [("dark", "vs-dark"), ("light", "streamlit"), (None, "streamlit")],
+)
+def test_playground_editor_uses_a_dark_syntax_theme_in_dark_mode(monkeypatch, streamlit_theme, expected):
+    """streamlit-monaco's "streamlit" theme always uses Monaco's light syntax colours (base "vs"),
+    so dark mode showed dark-blue keywords on a dark page. Dark mode asks for "vs-dark" instead."""
+    import playground_view
+
+    class Theme:
+        type = streamlit_theme
+
+    class Ctx:
+        theme = Theme()
+
+    monkeypatch.setattr(playground_view.st, "context", Ctx())
+    assert playground_view._monaco_theme() == expected

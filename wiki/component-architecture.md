@@ -208,6 +208,8 @@ flowchart LR
   `styles.py`: every token is defined on bare `:root` (light) and overridden in the dark media query.
 - `tests/test_theme.py` measures contrast for both themes (4.5:1 for every text-on-surface pair the
   stylesheet draws, and for code) and fails if a token exists only in dark mode. The visual tests (`-m visual`) screenshot both themes.
+- **The Playground editor** (streamlit-monaco) cannot read our tokens: its "streamlit" theme keeps
+  light syntax colours, so `playground_view._monaco_theme()` picks `vs-dark` in dark mode.
 - To try a theme by hand: switch the computer's appearance, or in Chrome DevTools use Rendering →
   "Emulate CSS media feature prefers-color-scheme".
 
