@@ -82,6 +82,9 @@ def ui_server():
                 "none",
             ],
             env=env,
+            # Streamlit reads .streamlit/config.toml relative to where it is started, so start it in
+            # frontend/ to load the production theme (Codex review on #40).
+            cwd=str(_FRONTEND.parent),
         )
         assert _wait_http(f"http://127.0.0.1:{ui_port}/_stcore/health"), "streamlit did not start"
         yield f"http://127.0.0.1:{ui_port}"
