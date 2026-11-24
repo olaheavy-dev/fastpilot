@@ -5,6 +5,12 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — Refresh plan: Codex round 4 on #33
+
+- **Fixed (P1):** the plan let only publish and the failure step have `GITHUB_TOKEN`, but check-changes and fetch call GitHub GraphQL, which needs a token. Build-and-evaluate now gets it too; a new test checks the backend and runner containers never receive it or any R2 key.
+- **Deferred (P2, round 4 rule):** #34 (two publishers sharing a version folder) and #35 (rescore the baseline when a stale golden question returns). Both must be fixed in the plan before Part 2 (PR 2) is built. A fresh review then had the spec record the token and the accepted risk, and the runner test check for no secrets at all.
+- Pages touched: `docs/superpowers/specs/2026-11-23-corpus-refresh-design.md`, `docs/superpowers/plans/2026-11-24-corpus-refresh.md`, `docs/planning/status.md`.
+
 ## 2026-11-24 — Session hand-over (open items, next steps, founder to-dos)
 
 **Refresh plan reworked:** two fresh reviews (contracts and failures; security and operations) found 23 P1 problems the first review missed (process issue agent-workflows #60). Fixed in the design and plan: the Agent evaluation runs in the published runner image with no network and no keys; secrets in a `main`-only environment and step-scoped; per-collection backend containers (the cached pipeline scored one collection twice); contaminated answers never scored; per-question baselines; a typed previous-corpus record; a conditional `index.json` write with one schema; transient vs content failures, a live snapshot before every restore and a daily point check on the server; a status check that opens an issue. Founder answers recorded in `docs/production-decisions.md`.

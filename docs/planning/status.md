@@ -26,7 +26,7 @@ flowchart LR
 | # | Work | State | Who merges |
 |---|---|---|---|
 | 1 | #32 production model | merged 24 Nov | done |
-| 2 | #33 corpus refresh design, plan and this file | 5 Codex points fixed and resolved; waiting for Codex on the latest commit | agent, when clean (documentation only) |
+| 2 | #33 corpus refresh design, plan and this file | Codex round 4 (24 Nov): the P1 (fetch needs `GITHUB_TOKEN`) fixed; the two P2s deferred to #34 and #35; waiting for Codex on the latest commit | agent, when clean (documentation only) |
 | 3 | Phase 22c go live (infra plan) | next; each server step asked first | founder (infra) |
 | 4 | Phase 22d watch, 22e uptime (infra #102) | after 22c | founder (infra) |
 | 5 | Corpus refresh build (#29), seven PRs: [plan](../superpowers/plans/2026-11-24-corpus-refresh.md), [diagrams](https://claude.ai/artifact/Wjm2iHjE9zDAYvH1taet5R); plan reworked on 24 Nov after two fresh reviews | after go-live; subagent-driven | founder for Parts 0, 1, 2, 3, 5 and the bootstrap lock; agent for Part 4 |
@@ -52,4 +52,4 @@ None. Go-live waits for #33's review and the spend caps.
 
 ## Open issues worth knowing
 
-#23 (compose ports; handled by the production file), #29 (refresh), #30 (MCP), #31 (model follow-ups), infra #102 (uptime).
+#23 (compose ports; handled by the production file), #29 (refresh), #34 and #35 (refresh plan follow-ups from Codex round 4, fix before Part 2 (PR 2) is built), #30 (MCP), #31 (model follow-ups), infra #102 (uptime).
