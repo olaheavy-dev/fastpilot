@@ -6,8 +6,8 @@ The current state, the planned work and the open to-dos. Keep this file current:
 
 ## Where we are
 
-- **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on (Phase 22c, infra #112 and the infra log). Image `sha-a26e1e2`. All runner proofs and public checks passed. The 48-hour watch (22d) runs until 26 Nov.
-- **Theme fix in review:** the app now follows the visitor's system theme (the in-app toggle is removed; your choice, 24 Nov: "Follow the system only (Recommended)"), and code, link and border colours are set for both themes. Goes live with the next deploy (`deploy-fastpilot.sh --stage containers` with the new `sha-` tag; ask first).
+- **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on (Phase 22c, infra #112 and the infra log). Now on image `sha-7517b7a` (theme fix, deployed the same night). All runner proofs and public checks passed. The 48-hour watch (22d) runs until 26 Nov.
+- **Themes fixed and deployed (24 Nov, about 23:55 UTC):** the app follows the visitor's system theme (the toggle is removed; your choice: "Follow the system only (Recommended)"), with code, link and border colours set for both themes and a readable Playground editor in dark mode (#40). Production runs `sha-7517b7a`; live checks in both themes passed. You chose "Stay on Streamlit (Recommended)": no React rewrite.
 - **Model:** `gemini-3.8-flash` with `gemini-3.5-flash-lite` as fallback (#32), running in production.
 - **Corpus:** the May 2026 corpus. It is only on the founder's Mac until the refresh moves it into a private R2 bucket. The index snapshot (4,241 chunks, SHA-256 `762a6402…`) is in `~/source/code/portfolio/fastpilot-index-snapshots/`.
 
