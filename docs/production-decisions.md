@@ -88,6 +88,7 @@ front of it is still only a filter. The built design is in
 `docs/superpowers/specs/2026-11-22-runner-sidecar-design.md`. Agent and Playground should not go public
 until the VPS move (after infra PR #85) is done. Issue #12 (the rate limit) is fixed; see the D11 update
 below. The demo is not live.
+*(Update, 24 Nov 2026: the VPS move is done; FastPilot is live at fastpilot.olaheavy.dev with Agent and Playground on, after the runner proofs passed. See infra Phase 22c.)*
 
 ### Playground (D11) — **added, with a threat model**
 **Why:** turns the agent's sandbox into a user-facing "now *you* tweak it" surface — the strongest demo

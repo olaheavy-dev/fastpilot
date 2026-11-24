@@ -99,7 +99,7 @@ the repo's [[CLAUDE.md]]; the short version is: **after real work, update the re
 refresh [[index]], and append to [[log]].**
 
 ## The honest state of the project
-Code, docs, evals, tests, CI, and deploy config are **done and green**. The two remaining
-steps are owner-only and browser-bound: **deploy to the VPS** (Railway is offline) and **record a demo**, then
-fill the placeholders in `README.md`. Those turn "great code" into "a product you can click."
+Code, docs, evals, tests, CI, and deploy config are **done and green**. The VPS deploy is done: FastPilot is
+live at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev) since 24 Nov 2026 (it replaced the offline Railway deploy). The remaining
+owner-only step is to **record a demo**, then fill the placeholders in `README.md`. Those turn "great code" into "a product you can click."
 Tracked in [[feature-coverage]].
