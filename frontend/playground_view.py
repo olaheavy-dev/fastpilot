@@ -66,10 +66,22 @@ PRESETS = {
 }
 
 
+def _monaco_theme() -> str:
+    """Editor colour theme for the visitor's current theme. streamlit-monaco's "streamlit" theme
+    copies only the background and text colours and always keeps Monaco's light syntax colours
+    (base "vs"), which are unreadable on a dark page; dark mode therefore uses Monaco's "vs-dark".
+    Streamlit infers the theme from the page; it can be briefly wrong on first load (Streamlit
+    issue #11920), and the next rerun corrects it."""
+    try:
+        return "vs-dark" if st.context.theme.type == "dark" else "streamlit"
+    except Exception:  # noqa: BLE001 - st.context may be absent (e.g. AppTest)
+        return "streamlit"
+
+
 def _editor(value: str) -> str:
     if _HAS_MONACO:
         try:
-            return st_monaco(value=value, height="340px", language="python", theme="streamlit") or value
+            return st_monaco(value=value, height="340px", language="python", theme=_monaco_theme()) or value
         except Exception:  # noqa: BLE001 - render failure → fallback editor, feature intact
             pass
     code = st.text_area("Code", value=value, height=340, key="pg_textarea", label_visibility="collapsed")

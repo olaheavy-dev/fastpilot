@@ -1,9 +1,12 @@
 # FastPilot theme — ratified design tokens (round-2 review), BOTH themes.
 # Streamlit >=1.46 supports [theme.light] / [theme.dark]; the app follows the
-# viewer's OS/browser appearance by default (override in Settings → Appearance).
-# Native widgets (chat, buttons, radio, toggle, sidebar) are themed here; our
+# viewer's OS/browser appearance. There is no in-app theme switch (founder, 24 Nov
+# 2026: "Follow the system only (Recommended)"): an in-app toggle could not switch
+# Streamlit's own widgets, so it left half the UI in the other theme.
+# Native widgets (chat, buttons, radio, toggle, sidebar, code) are themed HERE; our
 # custom elements (chips, badges, citations, sources, terminal) carry matching
-# light/dark values in the injected CSS layer (frontend/styles.py).
+# light/dark values in the injected CSS layer (frontend/styles.py), switched by the
+# same prefers-color-scheme rule. Contrast is measured in tests/test_theme.py.
 
 [theme]
 font = "sans-serif"
@@ -16,12 +19,22 @@ primaryColor = "#0F766E"
 backgroundColor = "#FAFAF9"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#1C1917"
+# Inline and block code: brand teal on a visible stone panel (4.72:1); without these
+# Streamlit falls back to green code text and a panel the page colour hides.
+codeTextColor = "#0F766E"
+codeBackgroundColor = "#F0EEEA"
+linkColor = "#0F766E"
+borderColor = "#E7E5E4"
 
 [theme.dark]
 primaryColor = "#2DD4BF"
 backgroundColor = "#0C1222"
 secondaryBackgroundColor = "#151D30"
 textColor = "#E7E9EE"
+codeTextColor = "#5EEAD4"
+codeBackgroundColor = "#18213A"
+linkColor = "#5EEAD4"
+borderColor = "#28324A"
 
 [server]
 headless = true

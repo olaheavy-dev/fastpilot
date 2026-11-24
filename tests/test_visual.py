@@ -82,6 +82,9 @@ def ui_server():
                 "none",
             ],
             env=env,
+            # Streamlit reads .streamlit/config.toml relative to where it is started, so start it in
+            # frontend/ to load the production theme (Codex review on #40).
+            cwd=str(_FRONTEND.parent),
         )
         assert _wait_http(f"http://127.0.0.1:{ui_port}/_stcore/health"), "streamlit did not start"
         yield f"http://127.0.0.1:{ui_port}"
@@ -158,10 +161,9 @@ def test_welcome_renders(ui_server, browser, width, theme):
 
 @pytest.mark.parametrize("theme,expected_bg", [("dark", "rgb(12, 18, 34)"), ("light", "rgb(250, 250, 249)")])
 def test_theme_drives_whole_app_surface(ui_server, browser, theme, expected_bg):
-    """The active theme drives the *entire* app surface, not just the custom CSS layer: the
-    `.stApp` background matches the theme token. This guards the in-app light/dark toggle —
-    forcing a theme now makes Streamlit's native surface follow (it used to track only
-    prefers-color-scheme, which is why a manual light choice left half the UI dark)."""
+    """The visitor's system theme drives the *entire* app surface: the `.stApp` background
+    matches the theme token. There is no in-app switch (24 Nov 2026): Streamlit's widgets and
+    our CSS layer both follow prefers-color-scheme, so they can never disagree."""
     page = _open(browser, 1280, theme)
     page.goto(ui_server, wait_until="load")
     page.wait_for_timeout(1500)
