@@ -5,6 +5,19 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — Themes: follow the system, fix component colours
+
+- **Review** (screenshots of the live site in all four system × toggle combinations): when the in-app
+  toggle disagreed with the system, Streamlit's own widgets stayed in the other theme (dark code blocks
+  on a light page, unreadable toggle halves, invisible captions and icons). Also: inline code was
+  Streamlit's default green, light code panels matched the page, and three small texts failed
+  contrast through opacity (3.18:1 to 1.93:1).
+- **Founder, 24 Nov 2026:** "Follow the system only (Recommended)". The toggle is removed; one rule
+  (`prefers-color-scheme`) drives Streamlit and our CSS. `config.toml` now sets code, link and border
+  colours for both themes; the forced overrides in `styles.py` are deleted; text no longer fades through opacity (the running-step pulse animation stays); light `--fp-muted` darkened from `#78716C` to `#736C67` (4.73:1 on the badge surface).
+- New `tests/test_theme.py` (contrast and token completeness, both themes); [[component-architecture]]
+  gains a "Frontend themes" section.
+
 ## 2026-11-24 — Live: fastpilot.olaheavy.dev (Phase 22c)
 
 - **Live at 21:22 UTC** with Chat, Agent and Playground on, image `sha-a26e1e2` (model `gemini-3.8-flash`). Steps run with the founder's approval for each: containers and index restore (4,241 points; infra #111 for a restore-helper check that fails on a brief `yellow`), runner proofs (no network, read-only, four capabilities, no keys; escape attempts failed; Playground, Agent and the per-minute limit worked), the DNS record (infra #112; Terraform `1 added`), the Caddy edge block, then public checks (200, WebSocket 101, direct connections to the server time out, Chat answers with sources, the 16th question is refused, no proxy-key warnings, about 410 MB of 1,728 MB caps). Details in infra's `wiki/log.md`.

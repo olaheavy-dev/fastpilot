@@ -195,6 +195,22 @@ flowchart LR
 | `formatting.py` | Source-label + presentation helpers shared by API and prompt builder. |
 | `models.py` | Pydantic request/response schemas — the contract shared with the frontend SSE parser. |
 
+## Frontend themes (`frontend/.streamlit/config.toml` + `frontend/styles.py`)
+
+- **One rule decides the theme: the visitor's system setting** (`prefers-color-scheme`). There is no
+  in-app switch. Founder, 24 Nov 2026: "Follow the system only (Recommended)". The old sidebar toggle
+  forced our CSS but could not switch Streamlit's own widgets, so code blocks, radios and captions
+  stayed in the other theme.
+- **Streamlit's widgets** take their colours from `[theme.light]` and `[theme.dark]` in `config.toml`,
+  including code (`codeTextColor`, `codeBackgroundColor`), links and borders. Add colours there, not as
+  CSS overrides with `!important`.
+- **Our own elements** (badges, citations, sources, terminal, agent steps) use the `--fp-*` tokens in
+  `styles.py`: every token is defined on bare `:root` (light) and overridden in the dark media query.
+- `tests/test_theme.py` measures contrast for both themes (4.5:1 for every text-on-surface pair the
+  stylesheet draws, and for code) and fails if a token exists only in dark mode. The visual tests (`-m visual`) screenshot both themes.
+- To try a theme by hand: switch the computer's appearance, or in Chrome DevTools use Rendering →
+  "Emulate CSS media feature prefers-color-scheme".
+
 ## Resilience model
 Every service getter (`get_rag_pipeline()`, `get_semantic_cache()`, …) **degrades
 internally and never raises** at construction. The lifespan builds them all, and `/health`

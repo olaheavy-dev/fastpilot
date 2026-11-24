@@ -3,8 +3,8 @@
 The CSS layer carries the ratified design tokens (round-2 review) as CSS variables
 with a ``prefers-color-scheme: dark`` override, so our custom elements (chips, status
 badges, citation markers, sources, terminal) flip with the OS the same way Streamlit's
-native widgets do via the ``[theme.light]`` / ``[theme.dark]`` config. Both themes are
-genuinely shipped; the dark values are the designer's exact tokens.
+native widgets do via the ``[theme.light]`` / ``[theme.dark]`` config. One rule drives
+both, so they can never disagree; there is no in-app theme switch (24 Nov 2026).
 
 The ``*_html`` helpers are pure (no Streamlit import) and emit class-based markup, so
 they're theme-independent and unit-testable.
@@ -28,8 +28,8 @@ _CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --fp-text: #1C1917; --fp-surface: #FFFFFF; --fp-surface-2: #F5F5F4;
-  --fp-border: #E7E5E4; --fp-muted: #78716C; --fp-muted-code: #6B6862;
+  --fp-text: #1C1917; --fp-app-bg: #FAFAF9; --fp-surface: #FFFFFF; --fp-surface-2: #F5F5F4;
+  --fp-border: #E7E5E4; --fp-muted: #736C67; --fp-muted-code: #6B6862;
   --fp-accent: #0D9488; --fp-accent-btn: #0F766E; --fp-accent-text: #0F766E;
   --fp-accent-soft: #CCFBF1; --fp-accent-soft-bd: #99F6E4;
   --fp-danger: #DC2626; --fp-danger-text: #B91C1C; --fp-danger-soft: #FEE2E2;
@@ -37,7 +37,7 @@ _CSS = """
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --fp-text: #E7E9EE; --fp-surface: #151D30; --fp-surface-2: #0A0F1C;
+    --fp-text: #E7E9EE; --fp-app-bg: #0C1222; --fp-surface: #151D30; --fp-surface-2: #0A0F1C;
     --fp-border: #28324A; --fp-muted: #8B94A7; --fp-muted-code: #8B94A7;
     --fp-accent: #2DD4BF; --fp-accent-btn: #2DD4BF; --fp-accent-text: #5EEAD4;
     --fp-accent-soft: #134E4A; --fp-accent-soft-bd: #115E59;
@@ -104,7 +104,6 @@ sup.fp-cite { color: var(--fp-accent-text); font-weight: 700; font-size: .72em; 
   padding: 10px 13px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
   color: var(--fp-text); overflow-x: auto; white-space: pre-wrap;
 }
-.fp-term .out { opacity: .85; }
 .fp-term .err { color: var(--fp-danger-text); }
 .fp-term .foot { margin-top: 6px; font-weight: 600; }
 .fp-term .foot.ok { color: var(--fp-success-text); }
@@ -118,7 +117,7 @@ sup.fp-cite { color: var(--fp-accent-text); font-weight: 700; font-size: .72em; 
 .fp-step.done .g { color: var(--fp-success-text); }
 .fp-step.error .g { color: var(--fp-danger-text); }
 .fp-step.error .d { color: var(--fp-danger-text); }
-.fp-step.pending { opacity: .5; }
+.fp-step.pending { color: var(--fp-muted); }
 .fp-step.pending .g { color: var(--fp-muted); }
 .fp-step.running .g { color: var(--fp-accent-text); animation: fp-pulse 1s ease-in-out infinite; }
 @keyframes fp-pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
@@ -130,8 +129,8 @@ sup.fp-cite { color: var(--fp-accent-text); font-weight: 700; font-size: .72em; 
 .fp-diff .del { color: var(--fp-danger-text); }
 
 /* Disclaimer + mode note */
-.fp-disclaimer { text-align: center; font-size: 12px; color: var(--fp-muted); opacity: .85; margin-top: .4rem; }
-.fp-mode-note { font-size: 11.5px; color: var(--fp-muted); opacity: .8; margin: -4px 2px 6px; }
+.fp-disclaimer { text-align: center; font-size: 12px; color: var(--fp-muted); margin-top: .4rem; }
+.fp-mode-note { font-size: 11.5px; color: var(--fp-muted); margin: -4px 2px 6px; }
 
 /* Long-content guards: a chat message never forces a horizontal page scroll —
    code blocks scroll inside themselves, long words/inline-code wrap. */
@@ -149,50 +148,10 @@ sup.fp-cite { color: var(--fp-accent-text); font-weight: 700; font-size: .72em; 
 """
 
 
-# Forced-theme overrides driven by the in-app toggle. A later :root{} beats the base
-# stylesheet's prefers-color-scheme :root by source order, so the *custom* elements follow
-# the chosen theme — and the native-surface rules (stable data-testid selectors) make
-# Streamlit's own widgets match too, instead of following the OS independently.
-_VARS_LIGHT = (
-    "--fp-text:#1C1917; --fp-app-bg:#FAFAF9; --fp-surface:#FFFFFF; --fp-surface-2:#F5F5F4;"
-    "--fp-border:#E7E5E4; --fp-muted:#78716C; --fp-muted-code:#6B6862;"
-    "--fp-accent:#0D9488; --fp-accent-btn:#0F766E; --fp-accent-text:#0F766E;"
-    "--fp-accent-soft:#CCFBF1; --fp-accent-soft-bd:#99F6E4;"
-    "--fp-danger:#DC2626; --fp-danger-text:#B91C1C; --fp-danger-soft:#FEE2E2;"
-    "--fp-success:#16A34A; --fp-success-text:#15803D;"
-)
-_VARS_DARK = (
-    "--fp-text:#E7E9EE; --fp-app-bg:#0C1222; --fp-surface:#151D30; --fp-surface-2:#0A0F1C;"
-    "--fp-border:#28324A; --fp-muted:#8B94A7; --fp-muted-code:#8B94A7;"
-    "--fp-accent:#2DD4BF; --fp-accent-btn:#2DD4BF; --fp-accent-text:#5EEAD4;"
-    "--fp-accent-soft:#134E4A; --fp-accent-soft-bd:#115E59;"
-    "--fp-danger:#F87171; --fp-danger-text:#FCA5A5; --fp-danger-soft:#3B1A1E;"
-    "--fp-success:#4ADE80; --fp-success-text:#86EFAC;"
-)
-_NATIVE_OVERRIDES = (
-    # Streamlit hardcodes its theme colors per widget (no overridable CSS var), so each native
-    # surface is mapped to our tokens — otherwise a forced theme leaks the OS theme on buttons,
-    # the bottom input bar, expanders, etc. (data-testid / .stButton selectors are stable).
-    'body, .stApp, [data-testid="stHeader"], [data-testid="stBottom"], [data-testid="stBottom"] div'
-    " { background-color: var(--fp-app-bg) !important; }"
-    '[data-testid="stSidebar"] { background-color: var(--fp-surface) !important; }'
-    '.stApp, [data-testid="stSidebar"], [data-testid="stMarkdownContainer"] { color: var(--fp-text); }'
-    ".stButton > button { background-color: var(--fp-surface) !important; color: var(--fp-text) !important; }"
-    # The chat input's baseweb wrapper divs (no testid) also carry the OS theme — scope to
-    # descendants of stChatInput so the whole input box follows the theme, not just the textarea.
-    '[data-testid="stChatInput"], [data-testid="stChatInput"] div, [data-testid="stChatInput"] textarea,'
-    ' [data-testid="stExpander"] details'
-    " { background-color: var(--fp-surface) !important; color: var(--fp-text) !important; }"
-    '[data-testid="stChatInput"] textarea::placeholder { color: var(--fp-muted) !important; }'
-)
-
-
-def inject_css(st, theme: str = "dark") -> None:  # noqa: ANN001 - st passed in to keep this module import-light
-    """Inject the base stylesheet, then force ``theme`` (``"light"``/``"dark"``) on both the
-    custom elements and Streamlit's native surfaces so the in-app toggle controls everything."""
+def inject_css(st) -> None:  # noqa: ANN001 - st passed in to keep this module import-light
+    """Inject the stylesheet. Theme follows the visitor's system (``prefers-color-scheme``),
+    the same rule Streamlit uses for its own widgets, so the two always agree."""
     st.markdown(_CSS, unsafe_allow_html=True)
-    forced = _VARS_DARK if theme == "dark" else _VARS_LIGHT
-    st.markdown(f"<style>:root{{{forced}}} {_NATIVE_OVERRIDES}</style>", unsafe_allow_html=True)
 
 
 # --- Pure helpers ---------------------------------------------------------

@@ -40,16 +40,6 @@ SUGGESTIONS = [
 ]
 
 
-def _active_theme() -> str:
-    """The viewer's current Streamlit/OS theme ("light"/"dark"), defaulting the toggle so
-    first paint matches their system. Read-only; the sidebar toggle can override it."""
-    try:
-        t = st.context.theme.type
-        return t if t in ("light", "dark") else "dark"
-    except Exception:  # noqa: BLE001 - st.context may be absent (e.g. AppTest)
-        return "dark"
-
-
 def _init_state() -> None:
     ss = st.session_state
     ss.setdefault("messages", [])
@@ -59,7 +49,6 @@ def _init_state() -> None:
     ss.setdefault("mode", MODES[0])
     ss.setdefault("pending", None)
     ss.setdefault("handled_fb", set())
-    ss.setdefault("theme", _active_theme())
 
 
 def _available_modes() -> list[str]:
@@ -100,14 +89,6 @@ def _sidebar() -> None:
             "Stream Responses",
             key="use_streaming",
             help="Show answers word by word as they generate.",
-        )
-        st.divider()
-        st.segmented_control(
-            "Theme",
-            ["light", "dark"],
-            key="theme",
-            format_func=lambda t: "☀️ Light" if t == "light" else "🌙 Dark",
-            help="Switch the whole app between light and dark.",
         )
         st.caption(f"Session: {st.session_state.session_id[:14]}…")
 
@@ -336,7 +317,7 @@ def _welcome() -> None:
 def main() -> None:
     st.set_page_config(page_title="FastPilot", page_icon="⚡", layout="centered", initial_sidebar_state="expanded")
     _init_state()
-    styles.inject_css(st, st.session_state.theme)
+    styles.inject_css(st)
     # Apply a requested mode switch BEFORE the sidebar radio (key="mode") is built —
     # Streamlit forbids writing a widget-bound key after the widget is instantiated.
     if st.session_state.get("pending_mode"):

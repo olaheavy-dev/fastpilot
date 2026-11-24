@@ -154,6 +154,15 @@ def test_toggles_in_session_state(at):
     assert at.session_state["use_streaming"] is True
 
 
+def test_no_in_app_theme_control(at):
+    """The app follows the visitor's system theme (founder, 24 Nov 2026: "Follow the system only
+    (Recommended)"); an in-app control could not switch Streamlit's own widgets."""
+    at.run()
+    # AppTest reports st.segmented_control as a "button_group" element.
+    assert not [w for w in at.get("button_group") if getattr(w, "label", "") == "Theme"]
+    assert "theme" not in at.session_state
+
+
 def test_new_chat_resets(at):
     at.run()
     at.chat_input[0].set_value("first question").run()
