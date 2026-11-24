@@ -30,7 +30,7 @@ flowchart LR
 | 3 | Phase 22c go live (infra plan) | next; each server step asked first | founder (infra) |
 | 4 | Phase 22d watch, 22e uptime (infra #102) | after 22c | founder (infra) |
 | 5 | Corpus refresh build (#29), six PRs: [plan](../superpowers/plans/2026-11-24-corpus-refresh.md), [diagrams](https://claude.ai/artifact/Wjm2iHjE9zDAYvH1taet5R) | after go-live; subagent-driven | founder for Part 0, 3, 5 and new packages |
-| 6 | MCP server (#30) | after the refresh; design first | — |
+| 6 | MCP server (#30), with the "About & connect" page in the app, `docs/mcp.md`, and the search-engine work (README, repository topics, a project page on the personal website, the MCP Registry listing) | after the refresh; design first | founder for the hosted part |
 | 7 | Model follow-ups (#31): cost per call, router fallback | backlog | agent |
 
 ## Founder to-dos
