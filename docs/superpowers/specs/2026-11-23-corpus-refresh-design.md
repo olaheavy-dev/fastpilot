@@ -1,6 +1,6 @@
 # Corpus refresh: design
 
-Status: draft for founder approval (23 Nov 2026). Issue: #29. Repositories: `olaheavy-dev/fastpilot` (the refresh) and `olaheavy-dev/infra` (the server updater).
+Status: approved by the founder (24 Nov 2026); updated after the plan review the same day. Issue: #29. Repositories: `olaheavy-dev/fastpilot` (the refresh) and `olaheavy-dev/infra` (the server updater).
 
 ## Intent
 
@@ -50,6 +50,7 @@ A refresh changes what FastPilot says. It is treated as a **release of FastPilot
 | Build approach | "A: one staged pipeline (Recommended)" | See below. |
 | Stale golden questions | "Flag, exclude, keep ≥10 of 12 (Recommended)" | See Golden-question health. |
 | Score noise | "Floors + re-run on a dip (Recommended)" | See Evaluation. |
+| Release retention | "Keep 3 + the bootstrap" | See Retention. |
 
 ## Approaches considered
 
@@ -83,8 +84,12 @@ Each stage reads the previous stage's **manifest** (JSON: status, inputs, counts
 4. **build.** Documents with harmonised metadata (`05_build_documents.py` logic), `file_path` normalised to forward slashes everywhere (May's `source_html` field carried Windows backslashes; the category map's keys already use `/`), and a **category** for every document from a rebuilt categoriser (below). The build fails if any document has no category or if the category counts shift more than a set margin from the last corpus without the change report explaining it.
 5. **index.** The proven hybrid pipeline (AST chunker, `voyage-4-lite` 2048-d dense, `Qdrant/bm25` sparse, named vectors `text-dense` and `text-sparse`) into a Qdrant 1.18 service container, collection `rag_accelerator_capstone_final`. Fails if the chunk count changes more than **25%** from the last corpus (catches, for example, a site change that splits pages into thousands of fragments). Then a snapshot and its SHA-256.
 6. **evaluate.** The gate and the report (below), against the new index.
-7. **decide.** `pass` only if every gate holds; otherwise `fail` with the reasons. On `fail`, nothing is published; the run is red and the notice says why.
-8. **publish.** On `pass`: a GitHub Release `corpus-YYYY-MM-DD` (published, marked latest) with the snapshot, its `.sha256`, `documents.jsonl`, the source files (`sources.tar.gz`), all manifests and `report.json`; and a notice (an issue titled "Corpus refresh: corpus-YYYY-MM-DD live", with the report and the rollback command). The release step uses the workflow's built-in `GITHUB_TOKEN`.
+7. **decide.** `pass` only if every gate holds; otherwise `fail` with the reasons. On `fail`, nothing is published; the run is red, and one issue "Corpus refresh failed" is opened (or updated) with the reasons and the stage that failed. A `no-change` run shows only in the workflow's run summary (no issue), so quiet months make no noise.
+8. **publish.** On `pass`: a GitHub Release `corpus-YYYY-MM-DD` (published, **not** marked "latest", which stays free for app releases; a second release on the same day gets the suffix `.2`, then `.3`, and the server orders by date then suffix) with the snapshot, its `.sha256`, `documents.jsonl`, the source files (`sources.tar.gz`), all manifests and `report.json`; and a notice (an issue titled "Corpus refresh: corpus-YYYY-MM-DD live", with the report and the rollback command). The release step uses the workflow's built-in `GITHUB_TOKEN`. Then retention (below).
+
+### Retention (founder: "Keep 3 + the bootstrap")
+
+After a new release is live, the publish stage deletes published corpus releases older than the **3 newest**, never the bootstrap `corpus-2026-05-14`, and deletes pre-releases (rolled-back ones) older than 90 days. The server holds at most the live index and one previous snapshot. Local test volumes and the old Qdrant Cloud cluster are cleaned by hand (the cluster is the founder's).
 
 ### GitHub thread selection (fixed size)
 
@@ -95,7 +100,8 @@ Targets: **100 all-time + 100 recent issues, 50 all-time + 50 recent discussions
   - discussion: must be answered; the discussion's upvotes + the accepted answer's upvotes + comments at half weight.
 - **All-time:** the top of those scores over the repository's whole history.
 - **Recent** (my call; the builder check found too few new closed issues per month for "since the last corpus"): the top of the same scores among threads closed or answered in the **last 12 months**, not already in the all-time list. If fewer qualify than the target, the gap is filled from the next all-time threads, and the report says so; this never fails the run.
-- Threads that fall out of both lists leave the corpus. The selection and each thread's score are written into the fetch manifest.
+- **Pinned** (my call, from the plan review): every thread cited by a golden question's reference contexts always stays in the corpus, counted within the totals, so rotation alone can never make a golden question stale. The fetch manifest lists each pinned thread and which question cites it.
+- Threads that fall out of every list leave the corpus. The selection and each thread's score and reason (`pinned`, `all-time`, `recent`, `fill`) are written into the fetch manifest.
 
 ### The categoriser
 
@@ -106,18 +112,19 @@ The Week-3 map (`category_map.json`, 514 entries, 11 categories) has no source c
 - **Gate (blocks publishing):**
   - RAG: the 12 golden questions, faithfulness and answer coverage each ≥ **0.90**;
   - Agent: the 10 golden tasks, success with self-correction ≥ **0.80**;
-  - **and** no real drop against the currently published corpus. Floors always apply. If the new corpus scores below the current one at all, the run re-scores **both** corpora side by side once more, with the same judge and model; it blocks only if the new one is worse on both runs: RAG faithfulness or coverage lower by more than **0.03**, or Agent success lower by **2 or more tasks**. (The 10 Agent tasks move in steps of 0.10, so one chance failure must not block a refresh.) The metrics compared are those three; completeness and first-attempt success are reported only.
-- **Judge:** fixed to `gemini-3.8-flash` (the 2.5 judge is no longer available to new projects). The judge model and FastPilot's model are recorded with every score; if either differs from the previous corpus's, the run re-scores the previous snapshot with the current judge and model before comparing, so a judge change can never pass for a quality change.
+  - **and** no real drop against the currently published corpus. Floors always apply. If the new corpus scores below the current one at all, the run re-scores **both** corpora side by side once more, with the same judge and model and the **same set of valid golden questions** (the previous release's snapshot is restored into the CI Qdrant as a second collection, and the answer runner is pointed at each in turn); it blocks only if the new one is worse on both runs: RAG faithfulness or coverage lower by more than **0.03**, or Agent success lower by **2 or more tasks**. (The 10 Agent tasks move in steps of 0.10, so one chance failure must not block a refresh.) The metrics compared are those three; completeness and first-attempt success are reported only.
+- **Judge:** fixed to `gemini-3.8-flash` (the 2.5 judge is no longer available to new projects). The judge model and FastPilot's model are recorded with every score; if either differs from the previous corpus's, the run re-scores the previous snapshot (restored as the second collection, as above) with the current judge and model before comparing, so a judge change can never pass for a quality change.
+- **The baseline** is always the newest **published, non-pre-release** `corpus-*` release, the same one the server installs, so a rolled-back release is never the comparison.
 - **Report (never blocks):** freshness probes, a handful of questions generated from what changed (new doc pages, new release notes), each checked for whether retrieval returns the new page in the top results; per-source counts and changes; chunk count; cost and duration.
 - **The golden set** is reviewed by a person once a year, or when probes keep showing gaps; changes are a reviewed pull request, never part of a run. Freshness probes that keep proving useful are suggested in the notice as golden candidates.
 
 ### Golden-question health (before the gate)
 
-The 12 golden questions have reference answers written against May's corpus; the coverage score measures how much of that answer the retrieved text supports, so a question goes stale when its sources change, not only when FastPilot gets worse. Most at risk: the five Full Stack Template questions (Q3, Q4, Q5, Q10, Q12); then the community-thread ones (Q9, Q11) as threads rotate.
+The 12 golden questions have reference answers written against May's corpus; the coverage score measures how much of that answer the retrieved text supports, so a question goes stale when its sources change, not only when FastPilot gets worse. From May's `golden_dataset.json` (`reference_contexts[].metadata.source`): six cite Full Stack Template files (Q3, Q4, Q5, Q8, Q10, Q12) and are most at risk when the template moves on; Q6, Q7 and Q11 cite only GitHub threads, and Q1 and Q9 mostly threads, which pinning (above) keeps in the corpus.
 
 On every run, for each golden question:
 1. Did the documents its reference answer relied on change between the two corpora? If not, it stays in the gate.
-2. If they did, the judge checks whether the reference answer is still true according to the new documents. Still true: it stays in the gate. Not true: it is marked **stale**, left out of this run's gate, listed in the notice, and an issue is opened ("Golden Q4 needs updating: …").
+2. If they did, the judge checks whether the reference answer is still true according to the new documents. Still true: it stays in the gate. Not true: it is marked **stale**, left out of this run's gate, listed in the notice, and an issue is opened ("Golden Q4 needs updating: …"), one per stale question, updated rather than duplicated on later runs.
 3. **Floor:** at least **10 of 12** must be valid; below that the run does not publish and waits for a person to update the set.
 
 The Agent tasks need no such check: each writes and runs code, so a FastAPI change that breaks one is a real failure.
@@ -143,7 +150,7 @@ Mark the bad release as a pre-release (one command, `gh release edit corpus-<bad
 3. Download the snapshot and `.sha256` to a temporary folder; verify the checksum; refuse anything not named for the one collection.
 4. Restore with the same logic as `restore-fastpilot-index.sh --replace` (copy into the Qdrant container, recover from inside the internal network), then check the point count against the release's manifest and run a retrieval health check through the backend.
 5. Clear FastPilot's semantic-cache keys (answers are cached for 24 hours, so without this visitors would keep getting the old corpus's answers, including after a rollback). My call: the updater does it directly in the Redis container, with the password read from `redis.conf` the way the health check does; no new endpoint, and no secret leaves the server.
-6. On success, record the tag. On any failure, restore the previous snapshot (kept on the server until the next success) and log the failure; the next day it tries again only if a newer release appears.
+6. On success, record the tag. On any failure, restore the previous snapshot (kept on the server until the next success), record the failed tag in `INDEX_FAILED_RELEASE` and log it; the updater does not retry that tag, and tries again only when a newer release appears (or the founder clears the file).
 
 The updater never needs a secret: the release is public and it talks to Qdrant through the backend container, which already holds the key.
 

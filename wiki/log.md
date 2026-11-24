@@ -12,18 +12,21 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 **Current state**
 - Nothing is public yet. Staging is retired. Production is ready to deploy with infra's `deploy-fastpilot.sh` (Phase 22c), from `~/source/code/infra/work/fastpilot-prod/` (env files filled and checked; never committed).
 - The index snapshot (4,241 chunks, SHA-256 `762a6402…`) is on the Mac in `~/source/code/portfolio/fastpilot-index-snapshots/`.
-- **Model:** `gemini-2.5-flash` is retired for new projects (rerouted 1 Dec 2026). Production needs `gemini-3.5-flash-lite` or `gemini-3.8-flash` (`LLM_MODEL` and `LLM_FALLBACK_MODEL` in `backend.env`; no code change). Agent eval: both 10/10. RAG eval: 3.5 Flash Lite 0.908 / 0.935 (passes). 3.8 Flash's RAG run had not finished when this was written; if it is missing, rerun with the two-key wrapper described below.
+- **Model:** `gemini-2.5-flash` is retired for new projects (rerouted 1 Dec 2026). Production needs `gemini-3.5-flash-lite` or `gemini-3.8-flash` (`LLM_MODEL` and `LLM_FALLBACK_MODEL` in `backend.env`; no code change). Agent eval: both 10/10. RAG eval: 3.5 Flash Lite 0.908 / 0.935 (passes). 3.8 Flash's RAG run had not finished when this was written. To rerun it: set `LLM_MODEL` and `LLM_FALLBACK_MODEL` to the model under test, run FastPilot's answers on the `fastpilot-prod` key, and run the judge as `gemini-3.8-flash`. `scripts/05_run_rag_eval.py` reads `JUDGE`-free settings today, so the 23 Nov run used a small wrapper that sets the judge model on the Week-4 `_eval_common` module before the judge is imported; Part 1 of the refresh plan replaces it with the `judge_model` setting.
 - **Corpus:** from 14 May 2026, only on the Mac (capstone repo, not in git). The refresh is designed and planned (#29).
 
 **Next steps, in order**
 1. **Pick the production model** from the eval results (re-run 3.8 Flash's RAG eval if needed: `scripts/05_run_rag_eval.py` with `FASTPILOT_CORPUS_ROOT`, FastPilot's answers on the `fastpilot-prod` key, judge `gemini-3.8-flash`); set `LLM_MODEL` and a different `LLM_FALLBACK_MODEL` (so one overloaded model can't take Chat down).
 2. **Phase 22c, go live** (infra plan): containers stage → index restore → runner proofs → DNS record PR → site stage → checks; then 22d (48 h watch) and 22e (uptime URL, infra #102).
-3. **Corpus refresh build** (#29): subagent-driven, starting next session, per the plan; Part 4 preserves May's corpus as `corpus-2026-05-14`.
+3. **Corpus refresh build** (#29): subagent-driven, starting next session, per the plan; Part 4 preserves May's corpus as `corpus-2026-05-14`. Releases kept: the 3 newest + the bootstrap.
+4. **MCP server** (#30): local and hosted, after the refresh.
+5. When the model is chosen, update `wiki/overview.md` and `wiki/component-architecture.md` (they still name `gemini-2.5-flash`).
 
 **Founder to-dos**
 - Spend caps: Gemini (`fastpilot-prod` project: budget alert and a daily request quota) and Voyage (usage limit).
 - Opik: read the `fastpilot` project's trace retention and say it, to record here.
 - Choose the production model when the results are in.
+- Delete the old Qdrant Cloud cluster in its dashboard, and the `QDRANT_URL` line pointing at it in FastPilot's `.env`.
 
 **Open issues worth knowing:** #23 (compose ports; handled by the production file), #29 (refresh), infra #102 (re-enable uptime), #105 closed, #109 (Vestagraph trap), agent-workflows #56 (one worktree per session).
 
