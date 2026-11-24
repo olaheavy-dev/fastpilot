@@ -36,7 +36,8 @@ flowchart LR
 ## Founder to-dos
 
 - [ ] Spend cap: Gemini (`fastpilot-prod`: a budget alert and a daily request quota). Needed before go-live.
-- [ ] Voyage: no cap (Voyage's docs describe none; your choice, 24 Nov: "Accept no cap, watch the bill"). Check the monthly bill, charged around the 2nd; first check 2 Dec 2026.
+- [x] Voyage: no cap exists (your choice, 24 Nov: "Accept no cap, watch the bill"); the dashboard's monthly budget alert is set to $7.50 (24 Nov).
+- [ ] Voyage: check the monthly bill, charged around the 2nd; first check 2 Dec 2026.
 - [ ] Opik: read the `fastpilot` project's trace retention and tell the agent, to record it.
 - [ ] Delete the old Qdrant Cloud cluster in its dashboard, and the `QDRANT_URL` line in FastPilot's `.env`.
 - [ ] Before the refresh build: create the three R2 tokens for `fastpilot-corpus` (read-write for the workflow's publish and rollback, read-only for its other steps, read-only for the server; Part 0 of the plan), and note each one's expiry.
