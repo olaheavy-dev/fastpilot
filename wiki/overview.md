@@ -37,7 +37,7 @@ the [scoping essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs
 | Generation | **Google Gemini** | `gemini-3.8-flash` (+ `gemini-3.5-flash-lite` fallback; was 2.5 Flash until Nov 2026). |
 | Memory + cache | **Redis 8** (self-hosted on the VPS since Nov 2026; Redis Cloud before) | Conversation sliding window + HNSW semantic cache (RediSearch). |
 | Observability | **Opik / Comet** | Tracing, prompt versioning, feedback scores, online-eval rule. |
-| Packaging / deploy | **uv · Docker** | Three services (backend, frontend, runner); the original Railway deploy is offline. See `DEPLOY.md`. |
+| Packaging / deploy | **uv · Docker** | Three services (backend, frontend, runner); the original Railway deploy is offline; production runs on the VPS at fastpilot.olaheavy.dev (since 24 Nov 2026). See `DEPLOY.md`. |
 
 ## System architecture
 

@@ -63,7 +63,7 @@ Tracked here (and as plans in [[plans/README]] when picked up):
 
 | Item | Why deferred |
 |---|---|
-| **Live deploy + public URL** | Railway deploy went offline (Nov 2026); relaunch on the founder's VPS with self-hosted Qdrant + Redis is under way (infra Phase 22: the production stack, index snapshot and memory measurements are done; deploying is next). |
+| **Live deploy + public URL** | Railway deploy went offline (Nov 2026). Live again since 24 Nov 2026 at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), on the founder's VPS with self-hosted Qdrant + Redis (infra Phase 22c). |
 | **Demo video / hero GIF** | Recorded against the deployed URL; placeholders marked in `README.md`. |
 | **Agent and Playground public** | Needs the VPS move (after infra PR #85), with `FRONTEND_PROXY_KEY` set and the frontend reachable only through Cloudflare (see `DEPLOY.md`). Issue #12 (rate limit) is fixed. The runner sidecar itself is built; it is not yet running on a public host. |
 | **Playground keystroke autocomplete** | Streamlit rerun + iframe latency; UX nicety. |

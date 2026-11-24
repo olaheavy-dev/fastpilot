@@ -5,6 +5,12 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — Live: fastpilot.olaheavy.dev (Phase 22c)
+
+- **Live at 21:22 UTC** with Chat, Agent and Playground on, image `sha-a26e1e2` (model `gemini-3.8-flash`). Steps run with the founder's approval for each: containers and index restore (4,241 points; infra #111 for a restore-helper check that fails on a brief `yellow`), runner proofs (no network, read-only, four capabilities, no keys; escape attempts failed; Playground, Agent and the per-minute limit worked), the DNS record (infra #112; Terraform `1 added`), the Caddy edge block, then public checks (200, WebSocket 101, direct connections to the server time out, Chat answers with sources, the 16th question is refused, no proxy-key warnings, about 410 MB of 1,728 MB caps). Details in infra's `wiki/log.md`.
+- README: the live demo link replaces the "temporarily offline" note. Stale "not live yet" lines fixed in `wiki/feature-coverage.md`, `wiki/onboarding.md`, `wiki/overview.md`, and a dated update under the decision in `docs/production-decisions.md`.
+- Next: the 48-hour watch (22d), then uptime (infra #102).
+
 ## 2026-11-24 — #33 merged; Voyage cap decision
 
 - **#33 merged** after five Codex rounds (the last clean). Plan follow-ups open: #34, #35 (before Part 2), #36 (before Part 5).

@@ -19,8 +19,8 @@ A production **RAG** system that closes the loop from reading to running:
 
 </div>
 
-> **Live demo:** temporarily offline while FastPilot moves from Railway to a new host. The
-> [video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f) shows it running, and the
+> **Live demo:** [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev) (Chat, Agent and Playground; daily limits per visitor).
+> The [video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f) shows it running, and the
 > screenshots below are real renders of the UI.
 
 ---
