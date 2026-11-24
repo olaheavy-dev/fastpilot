@@ -7,6 +7,8 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ## 2026-11-24 — Session hand-over (open items, next steps, founder to-dos)
 
+**Refresh plan reworked:** two fresh reviews (contracts and failures; security and operations) found 23 P1 problems the first review missed (process issue agent-workflows #60). Fixed in the design and plan: the Agent evaluation runs in the published runner image with no network and no keys; secrets in a `main`-only environment and step-scoped; per-collection backend containers (the cached pipeline scored one collection twice); contaminated answers never scored; per-question baselines; a typed previous-corpus record; a conditional `index.json` write with one schema; transient vs content failures, a live snapshot before every restore and a daily point check on the server; a status check that opens an issue. Founder answers recorded in `docs/production-decisions.md`.
+
 **Status file added:** [`docs/planning/status.md`](../docs/planning/status.md) now holds the current state, planned work (with a diagram) and founder to-dos; entries here keep the history.
 
 **Merged since the 22 Nov hand-over:** #24 rate limits per visitor address (issue #12), #26 images under `ghcr.io/olaheavy-dev` (public), #27 images and CI pinned to `uv.lock` (#25), #28 Phase 22a production stack; infra #97 (Phase 22 plan), #100 and the `fastpilot-staging` retirement, #110 (Phase 22b helpers).
