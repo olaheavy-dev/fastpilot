@@ -9,6 +9,7 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 - **Fixed (P1):** the plan let only publish and the failure step have `GITHUB_TOKEN`, but check-changes and fetch call GitHub GraphQL, which needs a token. Build-and-evaluate now gets it too; a new test checks the backend and runner containers never receive it or any R2 key.
 - **Deferred (P2, round 4 rule):** #34 (two publishers sharing a version folder) and #35 (rescore the baseline when a stale golden question returns). Both must be fixed in the plan before Part 2 (PR 2) is built. A fresh review then had the spec record the token and the accepted risk, and the runner test check for no secrets at all.
+- **Round 5:** one new P2 deferred to #36 (the updater must recover when the live collection is missing, before Part 5 is built). `main` merged into the branch to clear log conflicts with #32.
 - Pages touched: `docs/superpowers/specs/2026-11-23-corpus-refresh-design.md`, `docs/superpowers/plans/2026-11-24-corpus-refresh.md`, `docs/planning/status.md`.
 
 ## 2026-11-24 — Session hand-over (open items, next steps, founder to-dos)
@@ -40,6 +41,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 - Delete the old Qdrant Cloud cluster in its dashboard, and the `QDRANT_URL` line pointing at it in FastPilot's `.env`.
 
 **Open issues worth knowing:** #23 (compose ports; handled by the production file), #29 (refresh), infra #102 (re-enable uptime), #105 closed, #109 (Vestagraph trap), agent-workflows #56 (one worktree per session).
+
+## 2026-11-24 — Production model: gemini-3.8-flash, with gemini-3.5-flash-lite as fallback
+
+`gemini-2.5-flash` is no longer available to new projects (and is rerouted for everyone from 1 Dec 2026), so production needs a current model. Founder, 24 Nov 2026: "3.8 Flash, 3.5 Lite fallback (Recommended)", after both were evaluated: RAG (judge `gemini-3.8-flash`, gate 0.90) 3.8 Flash 0.906 / 0.935, 3.5 Flash Lite 0.908 / 0.935; Agent (10 tasks) both 10/10, first try 10/10 and 9/10. A *different* fallback model means one overloaded model can't take Chat down (both were briefly overloaded on 23 Nov).
+- **Changed:** `app/config.py` defaults `llm_model` and `llm_fallback_model`, `.env.example`, and the model named in `README.md`, `CLAUDE.md`, [[overview]] and [[component-architecture]]. No code path changed: the pinned `google-genai` 2.9 calls the new models as before.
+- **Also:** `scripts/05_run_rag_eval.py` accepts `FASTPILOT_CORPUS_ROOT` (the Week-4 instruments live in the capstone repository until the corpus refresh moves them, #29).
+- The decision and the full results are recorded in `docs/production-decisions.md`. Noticed, not changed (#31): the cost estimate still uses 2.5 Flash's price per call, and the router and rewriter have no fallback model.
 
 ## 2026-11-23 — Production stack, index snapshot and measurements (infra Phase 22a)
 

@@ -56,7 +56,7 @@ run code, which means leaving the docs and debugging alone.
 ```
 Streamlit frontend ──HTTP/SSE──> FastAPI backend ──> Qdrant (hybrid retrieval)
                                           │            Voyage (embed + rerank-2.5)
-                                          │            Gemini 2.5 Flash (generate)
+                                          │            Gemini 3.8 Flash (generate)
                                           ├──> Redis 8 (conversation memory + semantic cache)
                                           ├──> Opik (tracing, prompt versioning, feedback)
                                           └──Unix socket──> runner (runs generated code:
@@ -74,7 +74,7 @@ rate limits per visitor address (see [`DEPLOY.md`](DEPLOY.md)). Agent and Playgr
 public until the move to the VPS is done. Every production service is an explicit **add / skip decision**,
 documented in [`docs/production-decisions.md`](docs/production-decisions.md).
 
-**Tech:** FastAPI · Streamlit · Qdrant · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 2.5
+**Tech:** FastAPI · Streamlit · Qdrant · Voyage AI (voyage-4-lite + rerank-2.5) · Gemini 3.8
 Flash · Redis 8 (search) · Opik/Comet · Docker (self-hosted VPS) · `uv`.
 
 ---
