@@ -16,6 +16,7 @@ current when you add or rename one (see [[CLAUDE.md]] rule 3).
 | [[testing-strategy]] | Test tiers/markers, hermetic fixtures, fakes, coverage gate. |
 | [[feature-coverage]] | Inventory of implemented vs deferred features + measured results + honest limitations. |
 | [[log]] | Chronological record of sessions and notable changes. |
+| [Status](../docs/planning/status.md) | Current state, planned work (diagram) and founder to-dos; updated by every PR that changes them. |
 
 ## Folders
 

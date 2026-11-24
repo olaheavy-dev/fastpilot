@@ -5,6 +5,43 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — Refresh plan: Codex round 4 on #33
+
+- **Fixed (P1):** the plan let only publish and the failure step have `GITHUB_TOKEN`, but check-changes and fetch call GitHub GraphQL, which needs a token. Build-and-evaluate now gets it too; a new test checks the backend and runner containers never receive it or any R2 key.
+- **Deferred (P2, round 4 rule):** #34 (two publishers sharing a version folder) and #35 (rescore the baseline when a stale golden question returns). Both must be fixed in the plan before Part 2 (PR 2) is built. A fresh review then had the spec record the token and the accepted risk, and the runner test check for no secrets at all.
+- **Round 5:** one new P2 deferred to #36 (the updater must recover when the live collection is missing, before Part 5 is built). `main` merged into the branch to clear log conflicts with #32.
+- Pages touched: `docs/superpowers/specs/2026-11-23-corpus-refresh-design.md`, `docs/superpowers/plans/2026-11-24-corpus-refresh.md`, `docs/planning/status.md`.
+
+## 2026-11-24 — Session hand-over (open items, next steps, founder to-dos)
+
+**Refresh plan reworked:** two fresh reviews (contracts and failures; security and operations) found 23 P1 problems the first review missed (process issue agent-workflows #60). Fixed in the design and plan: the Agent evaluation runs in the published runner image with no network and no keys; secrets in a `main`-only environment and step-scoped; per-collection backend containers (the cached pipeline scored one collection twice); contaminated answers never scored; per-question baselines; a typed previous-corpus record; a conditional `index.json` write with one schema; transient vs content failures, a live snapshot before every restore and a daily point check on the server; a status check that opens an issue. Founder answers recorded in `docs/production-decisions.md`.
+
+**End of session (24 Nov):** #32 merged (model change). #33 has both fresh plan reviews applied (security/ops and contracts/failures: 23 P1 between them) plus six founder decisions; Codex's five points fixed and resolved; waiting for Codex on the latest commit. One decision open (how the corpus status becomes public, see the status file). Process issue agent-workflows #60 (the plan review missed cross-part contracts).
+
+**Status file added:** [`docs/planning/status.md`](../docs/planning/status.md) now holds the current state, planned work (with a diagram) and founder to-dos; entries here keep the history.
+
+**Merged since the 22 Nov hand-over:** #24 rate limits per visitor address (issue #12), #26 images under `ghcr.io/olaheavy-dev` (public), #27 images and CI pinned to `uv.lock` (#25), #28 Phase 22a production stack; infra #97 (Phase 22 plan), #100 and the `fastpilot-staging` retirement, #110 (Phase 22b helpers).
+
+**Current state**
+- Nothing is public yet. Staging is retired. Production is ready to deploy with infra's `deploy-fastpilot.sh` (Phase 22c), from `~/source/code/infra/work/fastpilot-prod/` (env files filled and checked; never committed).
+- The index snapshot (4,241 chunks, SHA-256 `762a6402…`) is on the Mac in `~/source/code/portfolio/fastpilot-index-snapshots/`.
+- **Model:** `gemini-2.5-flash` is retired for new projects (rerouted 1 Dec 2026). Chosen: `gemini-3.8-flash` with `gemini-3.5-flash-lite` as fallback (RAG 0.906 / 0.935 and 0.908 / 0.935; Agent 10/10 for both). The defaults change in a separate FastPilot PR. To rerun it: set `LLM_MODEL` and `LLM_FALLBACK_MODEL` to the model under test, run FastPilot's answers on the `fastpilot-prod` key, and run the judge as `gemini-3.8-flash`. `scripts/05_run_rag_eval.py` reads `JUDGE`-free settings today, so the 23 Nov run used a small wrapper that sets the judge model on the Week-4 `_eval_common` module before the judge is imported; Part 1 of the refresh plan replaces it with the `judge_model` setting.
+- **Corpus:** from 14 May 2026, only on the Mac (capstone repo, not in git). The refresh is designed and planned (#29).
+
+**Next steps, in order**
+1. **Merge the model change** (`gemini-3.8-flash`, fallback `gemini-3.5-flash-lite`; founder's choice 24 Nov after both passed the evaluations).
+2. **Phase 22c, go live** (infra plan): containers stage → index restore → runner proofs → DNS record PR → site stage → checks; then 22d (48 h watch) and 22e (uptime URL, infra #102).
+3. **Corpus refresh build** (#29): subagent-driven, starting next session, per the plan; Part 4 preserves May's corpus as `corpus-2026-05-14`. Storage: a private R2 bucket (not GitHub Releases); versions kept: the 3 newest + the bootstrap.
+4. **MCP server** (#30): local and hosted, after the refresh.
+
+**Founder to-dos**
+- Spend caps: Gemini (`fastpilot-prod` project: budget alert and a daily request quota) and Voyage (usage limit).
+- Opik: read the `fastpilot` project's trace retention and say it, to record here.
+- Before the refresh build: create the private R2 bucket's two tokens (Part 0 of the plan).
+- Delete the old Qdrant Cloud cluster in its dashboard, and the `QDRANT_URL` line pointing at it in FastPilot's `.env`.
+
+**Open issues worth knowing:** #23 (compose ports; handled by the production file), #29 (refresh), infra #102 (re-enable uptime), #105 closed, #109 (Vestagraph trap), agent-workflows #56 (one worktree per session).
+
 ## 2026-11-24 — Production model: gemini-3.8-flash, with gemini-3.5-flash-lite as fallback
 
 `gemini-2.5-flash` is no longer available to new projects (and is rerouted for everyone from 1 Dec 2026), so production needs a current model. Founder, 24 Nov 2026: "3.8 Flash, 3.5 Lite fallback (Recommended)", after both were evaluated: RAG (judge `gemini-3.8-flash`, gate 0.90) 3.8 Flash 0.906 / 0.935, 3.5 Flash Lite 0.908 / 0.935; Agent (10 tasks) both 10/10, first try 10/10 and 9/10. A *different* fallback model means one overloaded model can't take Chat down (both were briefly overloaded on 23 Nov).
