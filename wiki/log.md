@@ -5,6 +5,12 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-24 — #33 merged; Voyage cap decision
+
+- **#33 merged** after five Codex rounds (the last clean). Plan follow-ups open: #34, #35 (before Part 2), #36 (before Part 5).
+- **Voyage:** its docs describe no spending cap, only throughput limits. Founder, 24 Nov 2026: "Accept no cap, watch the bill"; recorded in `docs/production-decisions.md`. The status file's go-live to-do is now the Gemini cap only. Corrects the earlier to-do "Voyage (usage limit)", which assumed a setting Voyage does not document.
+- Pages touched: `docs/planning/status.md`, `docs/production-decisions.md`.
+
 ## 2026-11-24 — Refresh plan: Codex round 4 on #33
 
 - **Fixed (P1):** the plan let only publish and the failure step have `GITHUB_TOKEN`, but check-changes and fetch call GitHub GraphQL, which needs a token. Build-and-evaluate now gets it too; a new test checks the backend and runner containers never receive it or any R2 key.
