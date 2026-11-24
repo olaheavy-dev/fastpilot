@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A monthly, unattended refresh that rebuilds FastPilot's corpus from FastAPI's docs, template and GitHub threads, publishes it as a GitHub Release only if every gate passes, and lets the server install it (and roll back) by itself.
+**Goal:** A monthly, unattended refresh that rebuilds FastPilot's corpus from FastAPI's docs, template and GitHub threads, publishes it to a private R2 bucket only if every gate passes, and lets the server install it (and roll back) by itself.
 
-**Architecture:** A `corpus/` package in FastPilot runs eight stages (check-changes → fetch → validate → build → index → evaluate → decide → publish), each writing a JSON manifest the next stage requires. One GitHub Actions workflow runs it monthly; a small infra updater on the server pulls the newest published `corpus-*` release, verifies, restores, health-checks, clears the answer cache and rolls back on failure.
+**Architecture:** A `corpus/` package in FastPilot runs eight stages (check-changes → fetch → validate → build → index → evaluate → decide → publish), each writing a JSON manifest the next stage requires. One GitHub Actions workflow runs it monthly; a small infra updater on the server reads the bucket's `corpus/index.json`, pulls the newest `published` version, verifies, restores, health-checks, clears the answer cache and rolls back on failure.
 
 **Tech Stack:** Python 3.12, Haystack 2.30 (pinned by `uv.lock`), Voyage `voyage-4-lite`, FastEmbed `Qdrant/bm25`, Qdrant 1.18, Gemini via `google-genai` 2.9, GitHub REST and GraphQL, GitHub Actions, bash + systemd on the server.
 
 **Spec:** `docs/superpowers/specs/2026-11-23-corpus-refresh-design.md` (approved 24 Nov 2026). Read it with this plan.
 
-**When:** after FastPilot production is live (infra Phase 22c). Five pull requests, in order: Part 1 → Part 2 → Part 3 → Part 4 (FastPilot), Part 5 (infra).
+**When:** after FastPilot production is live (infra Phase 22c). Six pull requests, in order: Part 0 (infra: the bucket) → Part 1 → Part 2 → Part 3 → Part 4 (FastPilot) → Part 5 (infra: the updater).
 
 ## Global Constraints
 
@@ -23,10 +23,12 @@
 - Thread targets: 100 all-time + 100 recent issues; 50 all-time + 50 recent discussions; recent window 365 days; shortfall filled from all-time, never fails.
 - Change threshold: ≥ 5 docs pages added, removed or changed; a new template release; ≥ 20 threads entered the recent lists; or ≥ 90 days since the last corpus.
 - Categoriser: deterministic, no model calls; must reproduce May's `category_map.json` for ≥ 95% of the 514 files.
-- Retention (founder: "Keep 3 + the bootstrap"): after publishing, delete published corpus releases older than the 3 newest, never `corpus-2026-05-14`; delete pre-releases older than 90 days.
-- Baseline and install target: always the newest **published, non-pre-release** `corpus-*` release; same-day releases take the suffix `.2`, `.3`; never set GitHub's "latest" flag.
+- Storage (founder, 24 Nov 2026: "Private R2 for everything (Recommended)"): private Cloudflare R2 bucket `fastpilot-corpus`; version folders `corpus/<tag>/`; one list `corpus/index.json` (entries: `tag`, `date`, `status` `published` | `rolled-back`, `chunks`, `snapshot_sha256`), replaced in a single write. GitHub gets only the notice issue (scores, counts, links; never thread text).
+- Retention (founder: "Keep 3 + the bootstrap"): after publishing, delete the folders and entries of `published` versions older than the 3 newest, never `corpus-2026-05-14`; `rolled-back` versions older than 90 days.
+- Baseline and install target: always the newest `published` entry in `index.json`; same-day versions take the suffix `.2`, `.3`.
 - Pinned threads: every thread cited by a golden reference context stays in the corpus (reason `pinned`).
-- Releases: tag `corpus-YYYY-MM-DD`; assets `rag_accelerator_capstone_final.snapshot`, `…snapshot.sha256`, `documents.jsonl`, `sources.tar.gz`, `manifests.tar.gz`, `report.json`; a pre-release is never installed.
+- Versions: tag `corpus-YYYY-MM-DD`; files `rag_accelerator_capstone_final.snapshot`, `…snapshot.sha256`, `documents.jsonl`, `sources.tar.gz`, `manifests.tar.gz`, `report.json`; a `rolled-back` version is never installed.
+- New packages need founder approval before merge: `beautifulsoup4`, `markdownify`, `lxml` (Part 1), an S3 client for R2 in Python (`boto3`, Part 2) and one on the server (an official container image or a single binary, Part 5). Each PR lists licence, maintenance and why.
 - Only public content: docs from `https://fastapi.tiangolo.com/` (English), template `fastapi/full-stack-fastapi-template`, threads from `fastapi/fastapi`.
 - No agent attribution in commits or pull requests. Each part ends with `make`-equivalent check green: `uv run --frozen ruff check .`, `scripts/export_constraints.sh --check`, `uv run --frozen pytest --cov=app --cov=runner --cov=corpus --cov-fail-under=90` (FastPilot); `./scripts/check-app-scripts.sh`, `./scripts/check-wiki.sh`, `./scripts/plan-diverge` (infra).
 - CI stays hermetic: stage tests use recorded fixtures under `tests/corpus/fixtures/`; network and model calls are only in `-m live` tests and in the workflow.
@@ -35,8 +37,8 @@
 
 1. **A source that answers but is wrong** (the docs site returns its 404 or a cookie page for every URL, GitHub returns an empty page or rate-limit JSON): validate must fail with the source named, not build a tiny corpus. → Task 2.3 `test_validate_rejects_mostly_empty_docs` and `test_github_rate_limit_body_is_an_error`.
 2. **Two refresh runs at once, or a rerun after a half-finished run:** the second must not mix manifests from the first. → Task 3.1 (workflow `concurrency`), Task 2.1 `test_require_ok_rejects_manifest_from_another_run`.
-3. **The previous corpus has no report yet** (the first refresh after the bootstrap release, or a release with a missing asset): the dip rule must compare against the bootstrap scores or fail clearly, never compare with nothing and pass; after a rollback the baseline is the newest non-pre-release, never the rolled-back one. → Task 2.6 `test_decide_without_previous_scores_fails_closed`.
-4. **A release that exists but whose snapshot asset is missing or truncated:** the server must not install it and must keep the current index. → Task 5.1 updater tests `missing_asset` and `checksum_mismatch`.
+3. **The previous corpus has no report yet** (the first refresh after the bootstrap version, or a version with a missing file): the dip rule must compare against the bootstrap scores or fail clearly, never compare with nothing and pass; after a rollback the baseline is the newest non-pre-release, never the rolled-back one. → Task 2.6 `test_decide_without_previous_scores_fails_closed`.
+4. **A version listed in `index.json` whose snapshot is missing or truncated** (an upload that died half-way): the publish stage must never list it, and the server must not install it and must keep the current index. → Task 2.6 `test_index_written_only_after_uploads_verified`, Task 5.1 `missing_object` and `checksum_mismatch`.
 5. **A thread or page title with odd characters** (non-ASCII, slashes, very long titles): `file_path` and file names must stay safe and stable between runs. → Task 2.4 `test_file_path_is_stable_and_safe`.
 
 ---
@@ -121,9 +123,9 @@
   - `corpus.manifest.Manifest` (dataclass: `stage: str`, `run_id: str`, `status: Literal["ok", "failed", "no-change"]`, `counts: dict[str, int]`, `details: dict`, `started: str`, `finished: str`)
   - `corpus.manifest.write(m: Manifest, work_dir: Path) -> Path`; `corpus.manifest.require_ok(stage: str, work_dir: Path, run_id: str) -> Manifest` (raises `StageNotReady`)
   - `corpus.refresh.STAGES: tuple[str, ...] = ("check-changes", "fetch", "validate", "build", "index", "evaluate", "decide", "publish")`; `corpus.refresh.main(argv: list[str] | None = None) -> int` (`--stage`, `--force`, `--work-dir`, `--run-id`, `--publish` (off by default: without it, publish only writes what it would do), `--bootstrap-baseline`, and the bootstrap group `--bootstrap --snapshot <file> --documents <file> --sources <dir>`)
-  - `corpus.releases.latest_published_corpus(gh) -> Release | None` (newest published non-pre-release `corpus-*`, ordered by date then suffix) and `corpus.releases.next_tag(gh, today: date) -> str` (`corpus-YYYY-MM-DD`, or `.2`, `.3` if taken)
+  - `corpus.store.CorpusStore` (R2 through the S3 API: `read_index() -> list[Version]`, `write_index(versions)`, `upload(tag, files: dict[str, Path]) -> None` (reads back size and SHA-256), `download(tag, name, dest) -> Path`, `delete(tag)`; a fake in tests); `corpus.store.latest_published(versions) -> Version | None` (ordered by date then suffix) and `corpus.store.next_tag(versions, today: date) -> str` (`corpus-YYYY-MM-DD`, or `.2`, `.3` if taken)
 
-- [ ] **Step 1: Write the failing tests:** `test_require_ok_rejects_failed_stage`; `test_require_ok_rejects_manifest_from_another_run` (Review Focus 2); `test_cli_runs_stages_in_order_and_stops_on_failure` (stub stages); `test_cli_no_change_ends_green_without_later_stages`; `test_cli_accepts_every_flag_used_by_later_tasks`; `test_latest_published_corpus_skips_prereleases_and_orders_suffixes` (`corpus-2026-12-02.2` beats `corpus-2026-12-02`; a newer pre-release is ignored); `test_next_tag_adds_suffix_when_taken`.
+- [ ] **Step 1: Write the failing tests:** `test_require_ok_rejects_failed_stage`; `test_require_ok_rejects_manifest_from_another_run` (Review Focus 2); `test_cli_runs_stages_in_order_and_stops_on_failure` (stub stages); `test_cli_no_change_ends_green_without_later_stages`; `test_cli_accepts_every_flag_used_by_later_tasks`; `test_latest_published_skips_rolled_back_and_orders_suffixes` (`corpus-2026-12-02.2` beats `corpus-2026-12-02`; a newer `rolled-back` version is ignored); `test_next_tag_adds_suffix_when_taken`.
 - [ ] **Step 2: Run** `uv run --frozen pytest tests/corpus/test_manifest.py tests/corpus/test_refresh_cli.py -v`. Expected: FAIL.
 - [ ] **Step 3: Implement.** `main` runs each stage function (registered by name) in `STAGES` order, each first calling `require_ok` on the previous stage; exit code 0 for `ok` and `no-change`, 1 for any `failed`.
 - [ ] **Step 4: Run.** Expected: PASS.
@@ -209,9 +211,10 @@
 **Interfaces:**
 - Consumes: `scripts/05_run_rag_eval.py` and `scripts/06_run_agent_eval.py` logic refactored into `evaluations/run_rag.py: run(golden, *, valid_ids, model, judge_model) -> dict` and `evaluations/run_agent.py: run(tasks, *, model) -> dict` (the scripts become thin wrappers).
 - Produces:
-  - `evaluate.run(cfg, *, valid_ids: list[str], current: Release | None, qdrant_url: str, api_key: str, gh) -> Manifest`: scores the new collection; when needed (a dip, or a judge or model change) it downloads the current release's snapshot, restores it as a second collection `rag_accelerator_capstone_final_prev`, and scores it with the same judge, model and `valid_ids` (`evaluations/run_rag.run` and `run_agent.run` take a `collection` argument)
+  - `evaluate.run(cfg, *, valid_ids: list[str], current: Version | None, qdrant_url: str, api_key: str, store: CorpusStore) -> Manifest`: scores the new collection; when needed (a dip, or a judge or model change) it downloads the current version's snapshot from the store, restores it as a second collection `rag_accelerator_capstone_final_prev`, and scores it with the same judge, model and `valid_ids` (`evaluations/run_rag.run` and `run_agent.run` take a `collection` argument)
   - `decide.decide(new: Scores, current: Scores | None, rerun: Callable[[], tuple[Scores, Scores]]) -> Decision` (`Scores`: `faithfulness`, `coverage`, `agent_success`, `agent_n`, `model`, `judge_model`; `Decision`: `status`, `reasons: list[str]`)
-  - `publish.run(cfg, *, gh: GitHubReleases) -> Manifest` (`GitHubReleases` wraps `gh release create`, upload and issue create; a fake in tests)
+  - `publish.run(cfg, *, store: CorpusStore, gh: GitHubIssues) -> Manifest` (uploads to the store, then updates `index.json`; `GitHubIssues` wraps issue create and update; fakes in tests)
+  - `publish.rollback(tag: str, *, store, gh) -> Manifest` (marks the version `rolled-back`; refuses an unknown tag or the only `published` one)
   - `probes.make_probes(changed_pages: list[dict], n: int = 5) -> list[dict]`; `probes.score(probes, retrieve) -> dict` (report only)
 
 - [ ] **Step 1: Write the failing tests:**
@@ -219,16 +222,17 @@
   - `test_dip_reruns_once_and_blocks_only_if_worse_twice` (first run −0.04, rerun −0.01 → pass; both −0.04 → failed);
   - `test_agent_one_task_dip_never_blocks`, `test_agent_two_task_dip_twice_blocks`;
   - `test_judge_or_model_change_rescores_current_first`;
-  - `test_decide_without_previous_scores_fails_closed` (Review Focus 3: no `report.json` in the current release → failed with "no baseline", unless `--bootstrap-baseline` is given);
-  - `test_publish_uploads_six_assets_and_opens_notice` (names exactly as in Global Constraints; the notice body contains the scores, the stale list, the probe results, probes suggested as golden candidates, per-source counts, cost and duration, and the rollback command `gh release edit corpus-<tag> --prerelease`);
+  - `test_decide_without_previous_scores_fails_closed` (Review Focus 3: no `report.json` in the current version → failed with "no baseline", unless `--bootstrap-baseline` is given);
+  - `test_publish_uploads_six_files_then_lists_the_version_and_opens_notice` (names exactly as in Global Constraints; the notice body contains the scores, the stale list, the probe results, probes suggested as golden candidates, per-source counts, cost and duration, and the rollback instruction (Run workflow with `rollback: <tag>`), and **no thread text**);
+  - `test_index_written_only_after_uploads_verified` (Review Focus 4: an upload whose read-back SHA-256 differs → `index.json` unchanged, run failed);
+  - `test_rollback_marks_rolled_back_only` and `test_rollback_refuses_the_only_published_version`;
   - `test_failed_decision_publishes_nothing`;
   - `test_evaluate_rescores_previous_snapshot_on_judge_change` (the second collection is restored and scored with the current judge before any comparison);
   - `test_evaluate_uses_same_valid_ids_for_both`;
   - `test_failed_run_opens_or_updates_one_failure_issue` (reasons and failing stage in the body);
   - `test_stale_question_opens_one_issue_per_question` (updated, not duplicated, on a later run);
   - `test_no_change_writes_run_summary_only` (no issue);
-  - `test_publish_never_sets_latest_flag`;
-  - `test_retention_keeps_three_newest_and_bootstrap` (five published + one 100-day-old pre-release → deletes the two oldest published and the pre-release; never `corpus-2026-05-14`; runs only after the new release exists).
+  - `test_retention_keeps_three_newest_and_bootstrap` (five `published` + one 100-day-old `rolled-back` → deletes the two oldest published and the rolled-back one, folders and entries together; never `corpus-2026-05-14`; runs only after the new version is listed).
 - [ ] **Step 2–4:** Run (FAIL), implement, run (PASS).
 - [ ] **Step 5: Run the whole pipeline locally once** (manual): `uv run --frozen python -m corpus.refresh --force --work-dir /tmp/fp-refresh` with a local Qdrant and the `fastpilot-prod` key; it must reach `decide` and print the report (publish is skipped without `--publish`).
 - [ ] **Step 6: Commit** `git commit -m "corpus: evaluate, decide, publish"`. Open PR 2 (wiki: new `wiki/corpus-refresh.md`, index and log).
@@ -241,26 +245,36 @@
 
 **Files:** Create `.github/workflows/corpus-refresh.yml`. Test: `tests/test_workflows.py`.
 
-- [ ] **Step 1: Write the failing test** `test_corpus_refresh_workflow_shape` (parses the YAML): triggers are `workflow_dispatch` with a boolean `force` input and **no** `schedule` key yet (the founder adds the `cron` line from their own account, as a separate commit); `permissions` exactly `contents: write`, `issues: write`; `concurrency.group == "corpus-refresh"` with `cancel-in-progress: false`; one job, `timeout-minutes: 120`; a `services.qdrant` with the pinned image and an API key from a generated value; secrets used are only `GOOGLE_API_KEY` and `VOYAGE_API_KEY`, plus the built-in `GITHUB_TOKEN` / `github.token` for releases and issues; actions pinned by full commit SHA.
+- [ ] **Step 1: Write the failing test** `test_corpus_refresh_workflow_shape` (parses the YAML): triggers are `workflow_dispatch` with a boolean `force` input and a string `rollback` input (when set, only `python -m corpus.refresh --rollback <tag>` runs) and **no** `schedule` key yet (the founder adds the `cron` line from their own account, as a separate commit); `permissions` exactly `contents: read`, `issues: write`; `concurrency.group == "corpus-refresh"` with `cancel-in-progress: false`; one job, `timeout-minutes: 120`; a `services.qdrant` with the pinned image and an API key from a generated value; secrets used are only `GOOGLE_API_KEY`, `VOYAGE_API_KEY`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, plus the built-in `GITHUB_TOKEN` / `github.token` for issues; actions pinned by full commit SHA.
 - [ ] **Step 2: Run** `uv run --frozen pytest tests/test_workflows.py -v`. Expected: FAIL.
-- [ ] **Step 3: Write the workflow:** checkout, `pip install uv==0.13.7`, `uv sync --locked --all-extras --python 3.12`, then `uv run --frozen python -m corpus.refresh --publish ${{ inputs.force && '--force' || '' }}`; upload the work folder as a workflow artifact on failure (for debugging; it holds only public content).
+- [ ] **Step 3: Write the workflow:** checkout, `pip install uv==0.13.7`, `uv sync --locked --all-extras --python 3.12`, then `uv run --frozen python -m corpus.refresh --publish ${{ inputs.force && '--force' || '' }}`; on failure, upload only the manifests (counts, reasons; no thread text) as a workflow artifact for debugging.
 - [ ] **Step 4: Run** the test. Expected: PASS. Run the workflow once by hand on the branch with `force: false` and check it ends `no-change` or reaches `decide`.
-- [ ] **Step 5: Commit** and open PR 3. PR body lists the founder steps: add the two secrets (`GOOGLE_API_KEY` from `fastpilot-prod`, `VOYAGE_API_KEY`), merge, then add `schedule: - cron: "0 4 2 * *"` (04:00 UTC on the 2nd of each month) from the founder's account.
+- [ ] **Step 5: Commit** and open PR 3. PR body lists the founder steps: add the five secrets (`GOOGLE_API_KEY` from `fastpilot-prod`, `VOYAGE_API_KEY`, and the three R2 values for the read-write token from Part 0), merge, then add `schedule: - cron: "0 4 2 * *"` (04:00 UTC on the 2nd of each month) from the founder's account.
 
 ---
 
-## Part 4 (PR 4): the first release (preserve May's corpus)
+## Part 4 (PR 4): the first version (preserve May's corpus)
 
 ### Task 4.1: `--bootstrap` publish of the running corpus
 
-**Files:** Modify `corpus/stages/publish.py` (a `bootstrap(cfg, *, snapshot: Path, documents: Path, sources_dir: Path, scores: dict, gh) -> Manifest`). Test: `tests/corpus/test_publish.py::test_bootstrap_release`.
+**Files:** Modify `corpus/stages/publish.py` (a `bootstrap(cfg, *, snapshot: Path, documents: Path, sources_dir: Path, scores: dict, store: CorpusStore) -> Manifest`). Test: `tests/corpus/test_publish.py::test_bootstrap_version`.
 
-- [ ] **Step 1: Write the failing test** `test_bootstrap_release`: tag `corpus-2026-05-14`; the six assets; `report.json` holds the production scores measured with the current judge and model (from the go-live evaluation), `chunks: 4241`, `documents: 514`, and `bootstrap: true`; it is published and **not** a pre-release.
+- [ ] **Step 1: Write the failing test** `test_bootstrap_version`: tag `corpus-2026-05-14`; the six files in the store; `report.json` holds the production scores measured with the current judge and model (from the go-live evaluation), `chunks: 4241`, `documents: 514`, and `bootstrap: true`; listed in `index.json` as `published`.
 - [ ] **Step 2–4:** Run (FAIL), implement, run (PASS).
-- [ ] **Step 5: Publish it for real** (manual, founder present): `uv run --frozen python -m corpus.refresh --bootstrap --snapshot ~/source/code/portfolio/fastpilot-index-snapshots/rag_accelerator_capstone_final-3539986934266048-2026-11-23-16-14-28.snapshot --documents <capstone documents.jsonl> --sources <capstone processed dirs>`; check the six assets and the SHA-256 (`762a6402…`) on the release page.
+- [ ] **Step 5: Publish it for real** (manual, founder present): `uv run --frozen python -m corpus.refresh --bootstrap --snapshot ~/source/code/portfolio/fastpilot-index-snapshots/rag_accelerator_capstone_final-3539986934266048-2026-11-23-16-14-28.snapshot --documents <capstone documents.jsonl> --sources <capstone processed dirs>`; check the six files and the SHA-256 (`762a6402…`) by listing the bucket.
 - [ ] **Step 6: Commit** and open PR 4.
 
 ---
+
+## Part 0 (PR 0, infra, founder merge): the private bucket and its tokens
+
+### Task 0.1: `fastpilot-corpus` bucket
+
+**Files (infra):** Modify the existing R2 Terraform root (`terraform/r2-backups/`, or a sibling root in the same style, the builder's call recorded in the PR) to add a private bucket `fastpilot-corpus` with **no** object lock and **no** lifecycle rule (retention is done by the publish stage). Modify `scripts/check-terraform.sh` (broken copies: a public bucket, a lifecycle rule, a lock) and `wiki/github-secrets.md` (the five workflow secrets), `wiki/fastpilot-production.md`.
+
+- [ ] **Step 1: Write the failing checks** in `check-terraform.sh`: the bucket exists, is not public, has no lock or lifecycle.
+- [ ] **Step 2–4:** Run (FAIL), add the bucket, run (PASS); `terraform validate` with `init -backend=false`.
+- [ ] **Step 5: Commit** and open PR 0. FOUNDER steps in the PR body: apply through the R2 Terraform workflow; in the Cloudflare dashboard create two R2 API tokens scoped to `fastpilot-corpus`, one **read and write** (for the FastPilot workflow secrets) and one **read only** (for the server, Part 5); store neither in any repository.
 
 ## Part 5 (PR 5, infra): the server updater
 
@@ -272,21 +286,22 @@
 - Modify: `scripts/check-app-scripts.sh` (tests), `wiki/fastpilot-production.md` (the updater and rollback), `wiki/log.md`, `wiki/plan/phase-22-fastpilot-production.md` (status)
 
 **Interfaces:**
-- Consumes: the release contract in Global Constraints; `restore-fastpilot-index.sh` remote logic (factor it into a function the updater sources, or copy it with a comment pointing to the original; keep one behaviour).
+- Consumes: the storage contract in Global Constraints (`corpus/index.json`, version folders); `restore-fastpilot-index.sh` remote logic (factor it into a function the updater sources, or copy it with a comment pointing to the original; keep one behaviour).
 - Produces: `/home/apps/fastpilot-prod/INDEX_RELEASE` (installed tag), `/home/apps/fastpilot-prod/INDEX_FAILED_RELEASE` (last failed tag), `/home/apps/fastpilot-prod/index-previous.snapshot` (kept until the next success), journal lines tagged `fastpilot-index-updater`.
 
-- [ ] **Step 1: Write the failing tests** in `check-app-scripts.sh` (stub `curl` with recorded GitHub API answers, stub `docker` as today):
-  - `newest_non_prerelease_wins` (releases: `corpus-2027-02-02` pre-release, `corpus-2026-12-02` published → installs `2026-12-02`);
+- [ ] **Step 1: Write the failing tests** in `check-app-scripts.sh` (stub the S3 client with recorded `index.json` answers and files, stub `docker` as today):
+  - `newest_published_wins` (`corpus-2027-02-02` `rolled-back`, `corpus-2026-12-02` `published` → installs `2026-12-02`);
   - `same_tag_does_nothing`;
-  - `missing_asset` and `checksum_mismatch` (Review Focus 4: nothing restored, `INDEX_RELEASE` unchanged);
+  - `missing_object` and `checksum_mismatch` (Review Focus 4: nothing restored, `INDEX_RELEASE` unchanged);
+  - `read_token_never_printed` (dry run and errors never show the token; the file is mode 600);
   - `point_count_mismatch_rolls_back` (restores `index-previous.snapshot`);
   - `cache_cleared_after_install_and_after_rollback` (a `redis-cli` call with `REDISCLI_AUTH` from `redis.conf` and the cache key pattern; never the password on a command line);
   - `timer_is_daily`;
   - `failed_tag_not_retried` (a tag in `INDEX_FAILED_RELEASE` is skipped until a newer release appears);
   - `suffix_ordering` (`corpus-2026-12-02.2` installed over `corpus-2026-12-02`);
-  - `wrong_collection_name_refused` (an asset not named `rag_accelerator_capstone_final.snapshot` is never restored);
+  - `wrong_collection_name_refused` (a file not named `rag_accelerator_capstone_final.snapshot` is never restored);
   - `retrieval_health_check_failure_rolls_back` (the backend's retrieval check returns no sources → previous snapshot restored).
 - [ ] **Step 2: Run** `./scripts/check-app-scripts.sh`. Expected: FAIL.
-- [ ] **Step 3: Implement** the updater (bash, `set -euo pipefail`, `curl -fsSL` to `https://api.github.com/repos/olaheavy-dev/fastpilot/releases`, `jq` for selection), the units (daily, `Persistent=true`, a random delay up to 1 h) and the installer (dry run plans the files; apply writes them and enables the timer).
+- [ ] **Step 3: Implement** the updater (bash, `set -euo pipefail`; the S3 client proposed in the PR for the founder's approval, reading the read-only token from `/home/apps/fastpilot-prod/r2-read.env`; `jq` for `index.json`), the units (daily, `Persistent=true`, a random delay up to 1 h) and the installer (dry run plans the files; apply writes them and enables the timer).
 - [ ] **Step 4: Run** all infra checks. Expected: PASS.
-- [ ] **Step 5: Commit** and open PR 5 (founder merge: infrastructure). After merge, the founder approves the apply; then run the updater once by hand and check it reports `same_tag_does_nothing` against the bootstrap release.
+- [ ] **Step 5: Commit** and open PR 5 (founder merge: infrastructure). After merge, the founder approves the apply; then run the updater once by hand and check it reports `same_tag_does_nothing` against the bootstrap version. The installer also writes `r2-read.env` (mode 600) from a value the founder pastes into a prompt, never a command-line argument.
