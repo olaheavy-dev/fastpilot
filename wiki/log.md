@@ -5,6 +5,15 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Refresh plan follow-ups (#34, #35, #36)
+
+- **#34:** version files in R2 are now create-only. Publish claims `corpus/<tag>/` with `If-None-Match: *` and writes every file the same way. A `412` fails the run and deletes nothing, so two publishers that pick the same tag can't overwrite each other's files. `next_tag` skips leftover folders, and retention deletes unlisted folders after 7 days. R2 support was checked in Cloudflare's conditional-operations docs.
+- **#35:** `evaluate` rescores the previous release when a valid question has no stored baseline score (a stale question that is valid again). `Scores.mean` raises on a missing score instead of averaging fewer questions.
+- **#36:** when Qdrant reports that the live collection is missing, the updater skips the live snapshot and installs the verified version. If Qdrant is unreachable, it still skips the run.
+- **Fresh review before push** (1 P1, 5 P2, 6 P3, all fixed): a missing collection counts as a mismatch in the same-tag check; `/health` stays 200 with `points: 0`; a failed install with no live copy retries the next day; `--clean-partial` for a half-finished bootstrap; `Stubber` tests prove the condition is on `PutObject` and `CompleteMultipartUpload`; the tag is chosen inside publish; R2's default multipart-abort rule is kept.
+- **`pyrightconfig.json` committed** (founder, 25 Nov 2026: "Commit it (Recommended)"), with `pythonVersion` changed from 3.13 to 3.11 to match the lowest supported version; noted in [[Coding Conventions]].
+- Pages: `docs/superpowers/plans/2026-11-24-corpus-refresh.md`, `docs/superpowers/specs/2026-11-23-corpus-refresh-design.md`, `docs/planning/status.md`. No wiki page changed (`wiki/corpus-refresh.md` arrives with Part 2).
+
 ## 2026-11-25 — Session hand-over
 
 - **Merged 24 Nov:** #33 (refresh design and plan), #37 (Voyage and Gemini spend decisions), #39 (live), #40 (themes), #41 (deploy record); infra #112 (DNS record). **Open:** infra #114 (founder merge).
