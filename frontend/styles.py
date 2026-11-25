@@ -138,11 +138,18 @@ sup.fp-cite { color: var(--fp-accent-text); font-weight: 700; font-size: .72em; 
 [data-testid="stChatMessage"] pre { overflow-x: auto; max-width: 100%; }
 [data-testid="stChatMessage"] :not(pre) > code { overflow-wrap: anywhere; word-break: break-word; }
 
+/* Toggle "off" track: Streamlit's default is a 15% tint that disappears on the sidebar
+   (#46). The muted token gives 5.16:1 (light) and 5.51:1 (dark) against the sidebar,
+   above the 3:1 floor for controls; "on" stays the theme's teal. */
+[data-testid="stCheckbox"] label:has(input[role="switch"]:not(:checked)) > span + div {
+  background-color: var(--fp-muted);
+}
+
 /* Mobile */
 @media (max-width: 640px) {
   .block-container { padding: 1rem .75rem 5rem; }
   .fp-hero h1 { font-size: 1.7rem; }
-  [data-testid="column"] { min-width: 100% !important; }
+  [data-testid="stColumn"] { min-width: 100% !important; }
 }
 </style>
 """

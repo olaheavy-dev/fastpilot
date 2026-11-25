@@ -5,6 +5,12 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — UI fixes from the upgrade review (#44, #45, #46)
+
+- **#46:** a switched-off sidebar toggle was a 15% tint that nearly vanished, most of all in light mode. Its track now uses `--fp-muted`: 5.16:1 on the light sidebar and 5.51:1 on the dark one (WCAG 1.4.11 asks for 3:1). The new test `test_toggle_off_track_is_visible` measures it in both themes; it fails on the old CSS and passes on the new.
+- **#44:** the mobile rule now targets `stColumn` (Streamlit's current test id). At 390 px nothing changes visibly, because Streamlit already stacks the chips; the rule is a guard.
+- **#45:** `use_container_width=True` → `width="stretch"` (four buttons), the replacement Streamlit 1.67 documents.
+
 ## 2026-11-25 — Dependency alerts cleared
 
 - **Dependabot alerts turned on** (they were off): 138 open alerts (8 critical, 83 high, 44 moderate, 3 low), all in indirect packages in `uv.lock`. Each one ships in the backend image, the frontend image or both: for example GitPython only in the frontend (through Streamlit), litellm only in the backend (through Opik), and Pillow in both.

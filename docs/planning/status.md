@@ -14,6 +14,7 @@ The current state, the planned work and the open to-dos. Keep this file current:
 ## Open pull requests
 
 - **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
+- **UI fixes #44, #45, #46**: visible switched-off toggles (both themes), the mobile column selector, `width="stretch"`. Waiting for Codex; deploys with #47 after the watch.
 - **Dependency alerts**: lock upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
 
 ## Where we are
