@@ -334,3 +334,53 @@ def test_playground_edit_reaches_run(ui_server, browser):
     page.get_by_role("button", name="▶ Run").click()
     expect(page.get_by_text("received: EDIT_MARKER_42", exact=False).first).to_be_visible(timeout=20_000)
     page.close()
+
+
+def _contrast(rgb_a: str, rgb_b: str) -> float:
+    """WCAG contrast ratio between two computed ``rgb(...)``/``rgba(...)`` colours (opaque)."""
+
+    def lum(rgb: str) -> float:
+        r, g, b = (int(float(x)) / 255 for x in rgb[rgb.index("(") + 1 : rgb.index(")")].split(",")[:3])
+        c = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in (r, g, b)]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+    hi, lo = sorted((lum(rgb_a), lum(rgb_b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_toggle_off_track_is_visible(ui_server, browser, theme):
+    """A switched-off sidebar toggle, at rest, must stand out from the sidebar, and its knob from
+    the track (WCAG 1.4.11, 3:1 each) — #46. Streamlit's default off track is a faint tint
+    (20% at rest, 15% on hover) that nearly vanishes in light mode."""
+    from playwright.sync_api import expect
+
+    page = _open(browser, 1280, theme)
+    page.goto(ui_server, wait_until="domcontentloaded")
+    expect(page.get_by_text("Learn FastAPI by building.")).to_be_visible(timeout=25_000)
+    page.get_by_text("Semantic Cache").first.click()
+    switch = page.get_by_role("switch", name="Semantic Cache")
+    expect(switch).not_to_be_checked(timeout=10_000)
+    page.mouse.move(900, 900)  # off the sidebar: measure the resting state, not hover
+    page.wait_for_timeout(1000)  # the track's colour animates; measure the settled "off" state
+    colours = page.evaluate(
+        """() => {
+          const input = document.querySelector('input[role=switch][aria-label="Semantic Cache"]');
+          const track = input.closest('label').querySelector(':scope > span + div');
+          const side = document.querySelector('[data-testid=stSidebar]');
+          let bg = getComputedStyle(side).backgroundColor, el = side;
+          while (bg === 'rgba(0, 0, 0, 0)' && el.parentElement) {
+            el = el.parentElement;
+            bg = getComputedStyle(el).backgroundColor;
+          }
+          const knob = getComputedStyle(track.firstElementChild).backgroundColor;
+          return [getComputedStyle(track).backgroundColor, bg, knob];
+        }"""
+    )
+    track, sidebar, knob = colours
+    assert not track.startswith("rgba") or track.endswith(", 1)"), f"off track is translucent: {track}"
+    ratio = _contrast(track, sidebar)
+    assert ratio >= 3, f"off track {track} on sidebar {sidebar}: {ratio:.2f}:1 < 3:1"
+    knob_ratio = _contrast(knob, track)
+    assert knob_ratio >= 3, f"knob {knob} on off track {track}: {knob_ratio:.2f}:1 < 3:1"
+    page.close()

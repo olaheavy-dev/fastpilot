@@ -29,7 +29,7 @@ _CSS = """
 
 :root {
   --fp-text: #1C1917; --fp-app-bg: #FAFAF9; --fp-surface: #FFFFFF; --fp-surface-2: #F5F5F4;
-  --fp-border: #E7E5E4; --fp-muted: #736C67; --fp-muted-code: #6B6862;
+  --fp-border: #E7E5E4; --fp-muted: #736C67; --fp-muted-code: #6B6862; --fp-toggle-off: #878079;
   --fp-accent: #0D9488; --fp-accent-btn: #0F766E; --fp-accent-text: #0F766E;
   --fp-accent-soft: #CCFBF1; --fp-accent-soft-bd: #99F6E4;
   --fp-danger: #DC2626; --fp-danger-text: #B91C1C; --fp-danger-soft: #FEE2E2;
@@ -38,7 +38,7 @@ _CSS = """
 @media (prefers-color-scheme: dark) {
   :root {
     --fp-text: #E7E9EE; --fp-app-bg: #0C1222; --fp-surface: #151D30; --fp-surface-2: #0A0F1C;
-    --fp-border: #28324A; --fp-muted: #8B94A7; --fp-muted-code: #8B94A7;
+    --fp-border: #28324A; --fp-muted: #8B94A7; --fp-muted-code: #8B94A7; --fp-toggle-off: #6B7489;
     --fp-accent: #2DD4BF; --fp-accent-btn: #2DD4BF; --fp-accent-text: #5EEAD4;
     --fp-accent-soft: #134E4A; --fp-accent-soft-bd: #115E59;
     --fp-danger: #F87171; --fp-danger-text: #FCA5A5; --fp-danger-soft: #3B1A1E;
@@ -138,11 +138,20 @@ sup.fp-cite { color: var(--fp-accent-text); font-weight: 700; font-size: .72em; 
 [data-testid="stChatMessage"] pre { overflow-x: auto; max-width: 100%; }
 [data-testid="stChatMessage"] :not(pre) > code { overflow-wrap: anywhere; word-break: break-word; }
 
+/* Toggle "off" track: Streamlit's default is a faint tint (20% at rest, 15% on hover) that
+   nearly disappears on the sidebar (#46). --fp-toggle-off clears 3:1 (WCAG 1.4.11) against
+   both the sidebar and the knob: light 3.89:1 / 3.89:1, dark 3.59:1 / 3.86:1. "On" stays the
+   theme's teal. One colour for rest and hover (Streamlit's hover tint is dropped, by choice).
+   Disabled toggles keep Streamlit's own look. */
+[data-testid="stCheckbox"] label:has(input[role="switch"]:not(:checked):not(:disabled)) > span + div {
+  background-color: var(--fp-toggle-off);
+}
+
 /* Mobile */
 @media (max-width: 640px) {
   .block-container { padding: 1rem .75rem 5rem; }
   .fp-hero h1 { font-size: 1.7rem; }
-  [data-testid="column"] { min-width: 100% !important; }
+  [data-testid="stColumn"] { min-width: 100% !important; }
 }
 </style>
 """
