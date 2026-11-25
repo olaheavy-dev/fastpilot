@@ -5,6 +5,12 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Session hand-over
+
+- **Merged 24 Nov:** #33 (refresh design and plan), #37 (Voyage and Gemini spend decisions), #39 (live), #40 (themes), #41 (deploy record); infra #112 (DNS record). **Open:** infra #114 (founder merge).
+- **Production:** live at fastpilot.olaheavy.dev on `sha-7517b7a`. Next: the 22d watch at about 21:20 UTC on 25 and 26 Nov, then 22e, then the refresh plan follow-ups (#34, #35, #36).
+- The status file holds the full list of next steps and founder to-dos.
+
 ## 2026-11-24 — Themes: follow the system, fix component colours
 
 - **Review** (screenshots of the live site in all four system × toggle combinations): when the in-app

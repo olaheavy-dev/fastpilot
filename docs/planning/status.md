@@ -2,7 +2,17 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 24 Nov 2026 (end of session)
+**Updated:** 25 Nov 2026, 00:10 UTC (end of session)
+
+## Start of the next session
+
+1. **22d, 24-hour watch, about 21:20 UTC on 25 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, backend and runner logs, rate-limit refusals, Gemini usage against the $10 cap and Voyage against the $7.50 alert. Post a short summary. The 48-hour check is at the same time on 26 Nov; then the founder decides whether Agent and Playground stay on.
+2. **Infra #114** (go-live records, architecture pages, the `sha-7517b7a` deploy log): Codex clean, no open threads; the founder merges it.
+3. Then **22e** (uptime check to the new site, infra #102; App Registry), then the refresh plan follow-ups **#34, #35, #36** (documentation only), then Part 0 of the refresh (#29).
+
+## Open pull requests
+
+- **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
 
 ## Where we are
 
@@ -38,6 +48,8 @@ flowchart LR
 
 - [x] Gemini: AI Studio monthly spend cap on `fastpilot-prod` set to $10 (24 Nov; stops requests when reached; no daily quota, your choice: "No, monthly is enough (Recommended)").
 - [x] Voyage: no cap exists (your choice, 24 Nov: "Accept no cap, watch the bill"); the dashboard's monthly budget alert is set to $7.50 (24 Nov).
+- [ ] Merge infra #114 (Codex clean).
+- [ ] Recheck the Sources title on the live site in Chrome (reload with ⌘⇧R), with the Mac in Dark and then Light.
 - [ ] Voyage: check the monthly bill, charged around the 2nd; first check 2 Dec 2026.
 - [ ] Opik: read the `fastpilot` project's trace retention and tell the agent, to record it.
 - [ ] Delete the old Qdrant Cloud cluster in its dashboard, and the `QDRANT_URL` line in FastPilot's `.env`.
@@ -55,4 +67,4 @@ None.
 
 ## Open issues worth knowing
 
-#23 (compose ports; handled by the production file), #29 (refresh), #34 and #35 (refresh plan follow-ups from Codex round 4, fix before Part 2 (PR 2) is built), #36 (updater recovery when the live collection is missing, fix before Part 5 is built), #30 (MCP), #31 (model follow-ups), infra #102 (uptime).
+#23 (compose ports; handled by the production file), #29 (refresh), #34 and #35 (refresh plan follow-ups from Codex round 4, fix before Part 2 (PR 2) is built), #36 (updater recovery when the live collection is missing, fix before Part 5 is built), #30 (MCP), #31 (model follow-ups), #38 (README badges and wiki link point to the old repository), infra #102 (uptime), infra #111 (the index-restore helper fails on a brief `yellow` status).
