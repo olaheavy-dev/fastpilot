@@ -5,6 +5,11 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Backend telemetry off (#64)
+
+- The review of #61 found that haystack-ai sends anonymous telemetry to PostHog (`eu.posthog.com`) unless `HAYSTACK_TELEMETRY_ENABLED` is false; nothing set it. Founder, 25 Nov 2026: "Turn it off (Recommended)".
+- `app/__init__.py` sets `HAYSTACK_TELEMETRY_ENABLED=False` and `HF_HUB_DISABLE_TELEMETRY=1` with `setdefault`, before any Haystack import. It is in code, not in the Compose file, because infra's allow-list fixes the backend's `environment` keys. `tests/test_telemetry.py` checks it in a fresh process; it fails without the change.
+
 ## 2026-11-25 — Weekly Dependabot updates
 
 - **#47 merged:** all 138 alerts cleared on `main` (deploy after the 48-hour watch).
