@@ -5,6 +5,26 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Dependency alerts cleared
+
+- **Dependabot alerts turned on** (they were off): 138 open alerts (8 critical, 83 high, 44 moderate, 3 low), all in indirect packages in `uv.lock`. Each one ships in the backend image, the frontend image or both: for example GitPython only in the frontend (through Streamlit), litellm only in the backend (through Opik), and Pillow in both.
+- **Founder's choice: "Do everything in one go"** (over a lock-only fix with Pillow later). The lock upgrade clears all 138, and an OSV scan of the new lock (162 packages) finds none. The main moves:
+  - Pillow 12.2 → 13.0. This needs Streamlit 1.58 → 1.67 and fastembed 0.8.0 → 0.9.1, because both capped Pillow below 13.
+  - voyageai 0.4.1 → 0.6.0, which also drops ffmpeg-python and future.
+  - GitPython removed (Streamlit 1.67 no longer needs it).
+  - certifi, anyio, aiohttp, cryptography, urllib3, pyasn1, filelock, h2, hpack and multidict.
+  - litellm 1.89 → 1.111.0 (through Opik).
+  - Our own `pyproject.toml` is unchanged.
+- **litellm and `boto3`.** litellm 1.95–1.100.3 has a high alert (GHSA-7hp6-4w63-5g45), and from 1.98 on litellm needs `boto3`. Founder's choice: "Upgrade, approve boto3 (Recommended)". `boto3` (Apache-2.0), botocore, s3transfer and jmespath are now in the backend image. A first pick of 1.95.1 would have added a new alert; the pre-push review caught it.
+- **Code:** voyageai 0.6 no longer raises without a key, so `_CacheEmbedder` checks the Voyage key itself. The cache then degrades to no-op instead of reporting itself available. Test: `test_cache_embedder_refuses_missing_voyage_key`.
+- **Checks:**
+  - fastembed 0.8.0 and 0.9.1 give byte-identical BM25 vectors (111 chunks, 8 queries), so no re-index is needed.
+  - A live Voyage smoke test passes: embed at 2,048 dimensions, rerank, and Haystack's `VoyageTextEmbedder` (cosine 1.0 against a direct call).
+  - A new visual test, `test_playground_edit_reaches_run`, proves that an edit typed in Monaco reaches `/execute`.
+  - The old and new Streamlit screenshots (both themes, 390 and 1280 px, and the toggles switched off) match apart from a pixel or two of spacing.
+- **Local finding:** `.venv/bin/pytest` still pointed at the pre-move `~/source/code/rag/fastpilot/.venv`, so local `uv run pytest` ran old packages. Rebuilt `.venv`. CI was not affected (fresh install).
+- **Deploy after the 48-hour watch (26 Nov).** fastembed 0.9 downloads `Qdrant/bm25` from Hugging Face only, so check that the first backend boot loads it. Next: a weekly `.github/dependabot.yml` (founder: "Yes, after the alert fix (Recommended)"), one file shared with the refresh plan's Part 3 `github-actions` entry.
+
 ## 2026-11-25 — Refresh plan follow-ups (#34, #35, #36)
 
 - **#34:** version files in R2 are now create-only. Publish claims `corpus/<tag>/` with `If-None-Match: *` and writes every file the same way. A `412` fails the run and deletes nothing, so two publishers that pick the same tag can't overwrite each other's files. `next_tag` skips leftover folders, and retention deletes unlisted folders after 7 days. R2 support was checked in Cloudflare's conditional-operations docs.

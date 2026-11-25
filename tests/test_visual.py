@@ -311,3 +311,26 @@ def test_mobile_agent_timeline_no_overflow(ui_server, browser):
     scroll_w = page.evaluate("document.documentElement.scrollWidth")
     assert scroll_w <= 392, f"horizontal overflow at 390px: scrollWidth={scroll_w}"
     page.close()
+
+
+def test_playground_edit_reaches_run(ui_server, browser):
+    """An edit typed into the Monaco editor must be the code that Run sends to /execute.
+    Guards the iframe → Python channel across Streamlit upgrades (1.60 started rejecting
+    some messages from child iframes); the stub echoes a marker only when it receives it."""
+    from playwright.sync_api import expect
+
+    page = _open(browser, 1280, "light")
+    page.goto(ui_server, wait_until="domcontentloaded")
+    expect(page.get_by_text("Learn FastAPI by building.")).to_be_visible(timeout=25_000)
+    _switch_mode(page, "Playground — practice")
+    expect(page.get_by_text("FastPilot · Playground", exact=False).first).to_be_visible(timeout=25_000)
+    editor = page.frame_locator('iframe[title*="monaco" i]').locator(".view-lines").first
+    editor.wait_for(state="visible", timeout=15_000)
+    editor.click()
+    page.keyboard.press("ControlOrMeta+End")
+    page.keyboard.press("Enter")
+    page.keyboard.type("print('EDIT_MARKER_42')")
+    page.wait_for_timeout(1500)  # let the component send its value back to Python
+    page.get_by_role("button", name="▶ Run").click()
+    expect(page.get_by_text("received: EDIT_MARKER_42", exact=False).first).to_be_visible(timeout=20_000)
+    page.close()

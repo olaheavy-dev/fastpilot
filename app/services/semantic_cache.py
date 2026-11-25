@@ -96,10 +96,14 @@ def create_cache_index(client: "redis.Redis", *, dimension: int) -> bool:
 class _CacheEmbedder:
     """Voyage embedder for query↔query similarity (same model as retrieval)."""
 
-    def __init__(self, model: str, dimension: int):
+    def __init__(self, model: str, dimension: int, api_key: str = ""):
         import voyageai
 
-        self.client = voyageai.Client()
+        # voyageai >= 0.6 no longer raises at construction when the key is missing (it allows
+        # local models), so check here: no key → the cache degrades to no-op, not "available".
+        if not api_key:
+            raise ValueError("VOYAGE_API_KEY is not set")
+        self.client = voyageai.Client(api_key=api_key)
         self.model = model
         self.dimension = dimension
 
@@ -135,7 +139,7 @@ class SemanticCache:
             self.redis = make_redis_client(s, decode_responses=False)  # raw embedding bytes
             self.redis.ping()
             create_cache_index(self.redis, dimension=self.dimension)
-            self.embedder = embedder or _CacheEmbedder(s.voyage_embed_model, s.voyage_dimension)
+            self.embedder = embedder or _CacheEmbedder(s.voyage_embed_model, s.voyage_dimension, s.voyage_api_key)
             self.available = True
             logger.info("Semantic cache ready (threshold=%.3f, ttl=%ds)", self.threshold, self.ttl)
         except Exception as exc:  # noqa: BLE001 - degrade, never crash startup
