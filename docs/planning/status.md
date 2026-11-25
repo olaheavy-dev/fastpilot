@@ -2,7 +2,7 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 14:34 UTC (weekly Dependabot updates; #50 merged)
+**Updated:** 25 Nov 2026, 23:17 UTC (Streamlit usage statistics off, #61)
 
 ## Start of the next session
 
@@ -13,6 +13,7 @@ The current state, the planned work and the open to-dos. Keep this file current:
 
 ## Open pull requests
 
+- **Streamlit usage statistics off** (#61): `browser.gatherUsageStats = false`; your choice, 25 Nov: "Turn it off (Recommended)". Ships with the #47/#49 deploy.
 - **#48 Weekly Dependabot updates** (`uv`, GitHub Actions, the production Compose images): `.github/dependabot.yml` and [`wiki/dependency-updates.md`](../../wiki/dependency-updates.md). Waiting for Codex.
 
 ## Where we are
