@@ -48,3 +48,21 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+
+  # The pinned Qdrant and Redis images in production (the infra Phase 22 plan relies on this
+  # entry). Dependabot reads any docker-compose*.yml in the folder, so docker-compose.prod.yml.
+  - package-ecosystem: "docker-compose"
+    directory: "/deploy"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    ignore:
+      # Server and client move together (qdrant-client is held below 1.19 above): patch
+      # releases only, so v1.18.x.
+      - dependency-name: "qdrant/qdrant"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]

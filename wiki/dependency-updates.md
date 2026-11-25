@@ -7,7 +7,7 @@ How FastPilot's packages stay current and safe. The config is `.github/dependabo
 | Kind | What it does | Turned on |
 |---|---|---|
 | **Alerts** | Reports a known vulnerability in any package in `uv.lock`, including indirect ones. Shown under the repository's Security tab. | 25 Nov 2026 (before then they were off) |
-| **Version updates** | Opens pull requests each Monday at 06:00 (London time) for newer versions of the **direct** `uv` dependencies (the packages named in `pyproject.toml`) and of GitHub Actions. Adding or changing the config also starts a check straight away. | 25 Nov 2026 |
+| **Version updates** | Opens pull requests each Monday at 06:00 (London time) for newer versions of the **direct** `uv` dependencies (the packages named in `pyproject.toml`), GitHub Actions, and the pinned Qdrant and Redis images in `deploy/docker-compose.prod.yml`. Adding or changing the config also starts a check straight away. | 25 Nov 2026 |
 | **Security updates** | Would open a pull request for an alert, including in indirect packages. | Off (a repository setting; the founder decides) |
 
 The first alert scan found 138 open alerts, all in **indirect** packages; PR #47 cleared all of them (see [[log]], 25 Nov 2026). Weekly version updates do not cover indirect packages. While security updates are off, an alert in an indirect package is fixed by hand: run `uv lock --upgrade-package <name>`, then follow the steps below.
@@ -16,7 +16,7 @@ The first alert scan found 138 open alerts, all in **indirect** packages; PR #47
 
 - **7-day cooldown:** a new release is proposed only 7 days after it comes out. This gives the maintainers time to withdraw a bad release.
 - **Patch releases are grouped** into one pull request. Minor and major updates stay one pull request each, because for a package whose version starts with `0.`, a minor bump counts as major.
-- **`qdrant-client` stays below 1.19**, to match the Qdrant server in production (`v1.18.0` in `deploy/docker-compose.prod.yml`). Move the client and the server together, in one planned change.
+- **`qdrant-client` stays below 1.19 and the `qdrant/qdrant` image gets patch releases only (v1.18.x)**, so the client matches the production server. Move the client and the server together, in one planned change. Image updates in `deploy/docker-compose.prod.yml` keep their `@sha256` digest pin; check that the new pull request updates both the tag and the digest.
 - **Haystack major versions are never proposed** (`*haystack*`, major updates ignored). Haystack 3 is a planned migration; a major Haystack change broke every Chat answer on 23 Nov 2026.
 - **`lockfile-only`:** Dependabot changes only `uv.lock`, never `pyproject.toml` (every bound there is an open `>=`). Check the first pull request's diff to confirm.
 - At most 5 open pull requests per ecosystem.

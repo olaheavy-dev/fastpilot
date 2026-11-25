@@ -9,6 +9,7 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 - **#47 merged:** all 138 alerts cleared on `main` (deploy after the 48-hour watch).
 - **`.github/dependabot.yml`:** weekly version updates for `uv` and `github-actions` on Mondays at 06:00 London time. It has a 7-day cooldown, groups patch releases, and holds `qdrant-client` below 1.19 to match the server. The options were checked against GitHub's options reference (`cooldown` supports `uv` and `github-actions`).
+- **`docker-compose` ecosystem** for `deploy/docker-compose.prod.yml` (Qdrant and Redis images), as the infra Phase 22 plan expects; `qdrant/qdrant` gets patch releases only. Dependabot's Compose fetcher matches `docker-compose*.yml`.
 - **Known step:** Dependabot changes only `uv.lock` (`versioning-strategy: lockfile-only`), so each `uv` PR fails CI's constraints check until `scripts/export_constraints.sh` is run on its branch with CI's uv version. Handle one PR at a time.
 - **Fresh review before the PR** (1 P1, 4 P2, 4 P3, all fixed): Haystack major versions are now ignored (P1); the strategy is lockfile-only; the page says weekly PRs cover direct dependencies only; the merge rules are referenced, not restated; the refresh plan's Part 3 needs no `dependabot.yml` change. Open for the founder: whether to turn on Dependabot security updates.
 - New page [[dependency-updates]]; [[index]] updated.

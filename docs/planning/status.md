@@ -14,7 +14,7 @@ The current state, the planned work and the open to-dos. Keep this file current:
 ## Open pull requests
 
 - **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
-- **Weekly Dependabot updates**: `.github/dependabot.yml` and [`wiki/dependency-updates.md`](../../wiki/dependency-updates.md). Waiting for Codex.
+- **#48 Weekly Dependabot updates** (`uv`, GitHub Actions, the production Compose images): `.github/dependabot.yml` and [`wiki/dependency-updates.md`](../../wiki/dependency-updates.md). Waiting for Codex.
 
 ## Where we are
 
