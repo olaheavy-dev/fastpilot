@@ -11,6 +11,7 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 - **Found and fixed from the watch:** Streamlit usage statistics (#63) and backend telemetry (#66) off; Opik is-alive pings (#62) and fonts/CDN (#65) opened.
 - **Merged today:** #42, #43, #47, #48, #49, #50, #63, #66; infra #114, #115, #119, #121, #123. App Registry redeployed on the server (production card links the production page).
 - **Uptime:** GitHub runs the organisation's scheduled jobs 11 to 13 hours late, so `uptime.yml` has not run on schedule; founder: "Wait a day on GitHub".
+- **Dependabot's first batch:** 10 PRs (#51–#60): three small test-tool updates, six major bumps (ruff and five GitHub Actions) and the Qdrant image (#52). Listed with their merge rule in the status file.
 - The status file holds the next steps and founder to-dos.
 
 ## 2026-11-25 — Backend telemetry off (#64)
