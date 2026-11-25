@@ -1,0 +1,75 @@
+# Weekly version updates (founder, 25 Nov 2026: "Turn on Dependabot first (Recommended)",
+# then "Yes, after the alert fix (Recommended)"). Security alerts are separate and always on.
+# Options: https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+#
+# Version updates cover direct dependencies only (the packages named in pyproject.toml).
+# uv PRs change only uv.lock (lockfile-only below). CI also checks app/ and
+# frontend/constraints.txt against the lock, so each uv PR fails CI until
+# `scripts/export_constraints.sh` is run on its branch and the result pushed
+# (see wiki/dependency-updates.md).
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    # Never edit pyproject.toml: every bound there is an open ">=", so a lock change is enough.
+    versioning-strategy: "lockfile-only"
+    # Wait 7 days after a release before proposing it (mirrors the house rules' 7-day
+    # cooldown for skill and plugin updates).
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      # Patch releases together in one PR; minor and major bumps stay one PR each, because
+      # a minor bump of a 0.x package counts as major under the house rules.
+      patches:
+        update-types: ["patch"]
+    ignore:
+      # The client stays on the production Qdrant server's minor version (v1.18.0 in
+      # deploy/docker-compose.prod.yml); move both together.
+      - dependency-name: "qdrant-client"
+        versions: [">=1.19"]
+      # Haystack 3 is a planned migration, not a weekly update: a major Haystack change
+      # broke every Chat answer on 23 Nov 2026. Covers haystack-ai and its integrations.
+      - dependency-name: "*haystack*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+
+  # The pinned Qdrant and Redis images in production (the infra Phase 22 plan relies on this
+  # entry). Dependabot reads both Compose files in /deploy; only Qdrant and Redis carry
+  # versions (the app images use a deploy-time tag, the local file has local builds).
+  # CI never runs these images, so a green check proves nothing: see wiki/dependency-updates.md.
+  - package-ecosystem: "docker-compose"
+    directory: "/deploy"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    ignore:
+      # Server and client move together (qdrant-client is held below 1.19 above): patch
+      # releases only, so v1.18.x.
+      - dependency-name: "qdrant/qdrant"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Redis holds the RediSearch semantic cache, rate limits and chat memory, with a 48 MB
+      # noeviction cap. Digest refreshes of 8.4 (its patch releases) still arrive; a minor or
+      # major move is a planned change.
+      - dependency-name: "redis"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]

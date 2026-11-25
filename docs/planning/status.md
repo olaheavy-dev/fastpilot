@@ -2,22 +2,22 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 14:29 UTC (uptime check; infra #114 and #115 merged)
+**Updated:** 25 Nov 2026, 14:34 UTC (weekly Dependabot updates; #50 merged)
 
 ## Start of the next session
 
 1. **22d, 24-hour watch, about 21:20 UTC on 25 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, backend and runner logs, rate-limit refusals, Gemini usage against the $10 cap and Voyage against the $7.50 alert. Post a short summary. The 48-hour check is at the same time on 26 Nov; then the founder decides whether Agent and Playground stay on.
-2. **Infra #114 and #115 merged** (25 Nov): go-live records and architecture pages; the uptime check moved to FastPilot.
+2. **Infra #114 and #115 merged** (25 Nov): go-live records and architecture pages; the uptime check moved to FastPilot (#50, merged).
 3. **Deploy #47 and #49 (both merged) after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
-4. Then **22e**: infra #114 and #115 are merged; the uptime check now runs from FastPilot (`uptime.yml`, #50). Infra #102 closes after a manual run and the first scheduled run pass with the founder's account as actor. Then step 5 (App Registry and the FastPilot pages in infra), then Part 0 of the refresh (#29).
+4. Then **22e**: infra #114 and #115 are merged; the uptime check now runs from FastPilot (`uptime.yml`, #50 merged 25 Nov). Infra #102 closes after a manual run and the first scheduled run pass with the founder's account as actor. Then step 5 (App Registry and the FastPilot pages in infra), then Part 0 of the refresh (#29).
 
 ## Open pull requests
 
-- **Uptime check** (`.github/workflows/uptime.yml`, [`wiki/uptime-check.md`](../../wiki/uptime-check.md)): every 15 minutes from this public repository, free. Waiting for Codex; **the founder merges it**, so failure emails go to the founder's account (GitHub sends them to the account that adds the workflow). Your choice, 25 Nov: "Move it to fastpilot (Recommended)", because in the private infra repository it used about 2,900 of the 3,000 shared Actions minutes a month.
+- **#48 Weekly Dependabot updates** (`uv`, GitHub Actions, the production Compose images): `.github/dependabot.yml` and [`wiki/dependency-updates.md`](../../wiki/dependency-updates.md). Waiting for Codex.
 
 ## Where we are
 
-- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts (8 critical, 83 high, 44 moderate, 3 low) in indirect packages in `uv.lock`, each shipping in the backend image, the frontend image or both. The dependency-alerts PR clears all 138 by upgrading the lock; an OSV scan of the new lock finds none. Your choices: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67 and fastembed 0.9.1; and "Upgrade, approve boto3 (Recommended)" for litellm 1.111, which puts `boto3` in the backend image. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Next: a weekly `.github/dependabot.yml` (your choice: "Yes, after the alert fix (Recommended)").
+- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts (8 critical, 83 high, 44 moderate, 3 low) in indirect packages in `uv.lock`, each shipping in the backend image, the frontend image or both. #47 (merged) clears all 138 by upgrading the lock; an OSV scan of the new lock finds none. Your choices: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67 and fastembed 0.9.1; and "Upgrade, approve boto3 (Recommended)" for litellm 1.111, which puts `boto3` in the backend image. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Weekly update PRs start when the config merges (your choice: "Yes, after the alert fix (Recommended)"). Each `uv` PR needs `scripts/export_constraints.sh` run on its branch before CI passes (`wiki/dependency-updates.md`).
 - **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on (Phase 22c, infra #112 and the infra log). Now on image `sha-7517b7a` (theme fix, deployed the same night). All runner proofs and public checks passed. The 48-hour watch (22d) runs until 26 Nov.
 - **Themes fixed and deployed (24 Nov, about 23:55 UTC):** the app follows the visitor's system theme (the toggle is removed; your choice: "Follow the system only (Recommended)"), with code, link and border colours set for both themes and a readable Playground editor in dark mode (#40). Production runs `sha-7517b7a`; live checks in both themes passed. You chose "Stay on Streamlit (Recommended)": no React rewrite.
 - **Model:** `gemini-3.8-flash` with `gemini-3.5-flash-lite` as fallback (#32), running in production.

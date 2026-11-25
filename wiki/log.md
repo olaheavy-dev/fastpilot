@@ -5,6 +5,18 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Weekly Dependabot updates
+
+- **#47 merged:** all 138 alerts cleared on `main` (deploy after the 48-hour watch).
+- **`.github/dependabot.yml`:** weekly version updates for `uv` and `github-actions` on Mondays at 06:00 London time. It has a 7-day cooldown, groups patch releases, and holds `qdrant-client` below 1.19 to match the server. The options were checked against GitHub's options reference (`cooldown` supports `uv` and `github-actions`).
+- **`docker-compose` ecosystem** for `deploy/docker-compose.prod.yml` (Qdrant and Redis images), as the infra Phase 22 plan expects. Qdrant gets patch releases only, and Redis only digest refreshes of `8.4`: CI never runs these images, so a green check proves nothing; [[dependency-updates]] has the local integration check. The refresh plan now reads the Qdrant image from the Compose file (one pin), so a Dependabot update needs no second edit. Dependabot's Compose fetcher matches `docker-compose*.yml`.
+- **Codex (P2, fixed):** the checklist allows digest-only Redis refreshes (tag `8.4` unchanged), instead of requiring the tag to change.
+- **Codex (P2, fixed):** the Compose checklist now runs the candidate Redis image by itself on port 6380 with `REDIS_TEST_URL`, because the local stack publishes no Redis port.
+- **Decisions (founder, 25 Nov 2026):** Compose image PRs are reviewed first, never merged on green alone ("No, review first (Recommended)"); Dependabot security updates turned on ("Yes, turn them on (Recommended)"; the repository setting now reads `enabled: true`).
+- **Known step:** Dependabot changes only `uv.lock` (`versioning-strategy: lockfile-only`), so each `uv` PR fails CI's constraints check until `scripts/export_constraints.sh` is run on its branch with CI's uv version. Handle one PR at a time.
+- **Fresh review before the PR** (1 P1, 4 P2, 4 P3, all fixed): Haystack major versions are now ignored (P1); the strategy is lockfile-only; the page says weekly PRs cover direct dependencies only; the merge rules are referenced, not restated; the refresh plan's Part 3 needs no `dependabot.yml` change. Open for the founder: whether to turn on Dependabot security updates.
+- New page [[dependency-updates]]; [[index]] updated.
+
 ## 2026-11-25 — Uptime check moves to FastPilot
 
 - **New workflow `.github/workflows/uptime.yml`** ("Uptime"): every 15 minutes it checks `https://fastpilot.olaheavy.dev` for HTTP 200 with a non-empty page. It has a 2-minute timeout and read-only permissions, and a manual run accepts another domain.

@@ -13,6 +13,7 @@ current when you add or rename one (see [[CLAUDE.md]] rule 3).
 | [[component-architecture]] | The building blocks under `app/` (services, components, augmentations, prompts) and how they collaborate. |
 | [[endpoint-summary]] | HTTP API surface, request/response schemas, and data flow (SSE contracts). |
 | [[coding-conventions]] | The house style — typing, lint rules, patterns, error handling. |
+| [[dependency-updates]] | Dependabot alerts and weekly update PRs: the config, the constraints step every `uv` PR needs, merge rules, extra checks for search packages. |
 | [[uptime-check]] | The 15-minute public check of fastpilot.olaheavy.dev (`uptime.yml`): why it runs here, what it proves, who gets the failure emails. |
 | [[testing-strategy]] | Test tiers/markers, hermetic fixtures, fakes, coverage gate. |
 | [[feature-coverage]] | Inventory of implemented vs deferred features + measured results + honest limitations. |
