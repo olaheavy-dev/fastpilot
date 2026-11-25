@@ -2,14 +2,14 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 14:30 UTC (weekly Dependabot updates; infra #114 and #115 merged)
+**Updated:** 25 Nov 2026, 14:34 UTC (weekly Dependabot updates; #50 merged)
 
 ## Start of the next session
 
 1. **22d, 24-hour watch, about 21:20 UTC on 25 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, backend and runner logs, rate-limit refusals, Gemini usage against the $10 cap and Voyage against the $7.50 alert. Post a short summary. The 48-hour check is at the same time on 26 Nov; then the founder decides whether Agent and Playground stay on.
-2. **Infra #114 and #115 merged** (25 Nov): go-live records and architecture pages; the uptime check moved to FastPilot (#50).
-3. **Deploy #47 and #49 (both merged) after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. The weekly `.github/dependabot.yml` is in its own PR (see Open pull requests); Dependabot runs once when it merges, then every Monday at 06:00 London time.
-4. Then **22e** (uptime check to the new site, infra #102; App Registry), then Part 0 of the refresh (#29).
+2. **Infra #114 and #115 merged** (25 Nov): go-live records and architecture pages; the uptime check moved to FastPilot (#50, merged).
+3. **Deploy #47 and #49 (both merged) after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
+4. Then **22e**: infra #114 and #115 are merged; the uptime check now runs from FastPilot (`uptime.yml`, #50 merged 25 Nov). Infra #102 closes after a manual run and the first scheduled run pass with the founder's account as actor. Then step 5 (App Registry and the FastPilot pages in infra), then Part 0 of the refresh (#29).
 
 ## Open pull requests
 
