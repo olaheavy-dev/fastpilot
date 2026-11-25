@@ -2,20 +2,18 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 13:19 UTC (uptime check moves to FastPilot)
+**Updated:** 25 Nov 2026, 14:29 UTC (uptime check; infra #114 and #115 merged)
 
 ## Start of the next session
 
 1. **22d, 24-hour watch, about 21:20 UTC on 25 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, backend and runner logs, rate-limit refusals, Gemini usage against the $10 cap and Voyage against the $7.50 alert. Post a short summary. The 48-hour check is at the same time on 26 Nov; then the founder decides whether Agent and Playground stay on.
-2. **Infra #114** (go-live records, architecture pages, the `sha-7517b7a` deploy log): Codex clean, no open threads; the founder merges it.
-3. **Deploy the dependency-alerts PR after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
-4. Then **22e**: the uptime check now runs from FastPilot (`uptime.yml`, PR open; infra's "Staging uptime" is removed in the infra 22e PR; infra #102 closes after the first scheduled run passes), and the App Registry and FastPilot pages (step 5, after infra #114), then Part 0 of the refresh (#29).
+2. **Infra #114 and #115 merged** (25 Nov): go-live records and architecture pages; the uptime check moved to FastPilot.
+3. **Deploy #47 and #49 (both merged) after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
+4. Then **22e**: infra #114 and #115 are merged; the uptime check now runs from FastPilot (`uptime.yml`, #50). Infra #102 closes after a manual run and the first scheduled run pass with the founder's account as actor. Then step 5 (App Registry and the FastPilot pages in infra), then Part 0 of the refresh (#29).
 
 ## Open pull requests
 
-- **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
 - **Uptime check** (`.github/workflows/uptime.yml`, [`wiki/uptime-check.md`](../../wiki/uptime-check.md)): every 15 minutes from this public repository, free. Waiting for Codex; **the founder merges it**, so failure emails go to the founder's account (GitHub sends them to the account that adds the workflow). Your choice, 25 Nov: "Move it to fastpilot (Recommended)", because in the private infra repository it used about 2,900 of the 3,000 shared Actions minutes a month.
-- **Dependency alerts**: lock upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
 
 ## Where we are
 
@@ -52,7 +50,7 @@ flowchart LR
 
 - [x] Gemini: AI Studio monthly spend cap on `fastpilot-prod` set to $10 (24 Nov; stops requests when reached; no daily quota, your choice: "No, monthly is enough (Recommended)").
 - [x] Voyage: no cap exists (your choice, 24 Nov: "Accept no cap, watch the bill"); the dashboard's monthly budget alert is set to $7.50 (24 Nov).
-- [ ] Merge infra #114 (Codex clean).
+- [x] Merge infra #114 (merged 25 Nov, with #115).
 - [ ] Recheck the Sources title on the live site in Chrome (reload with ⌘⇧R), with the Mac in Dark and then Light.
 - [ ] Voyage: check the monthly bill, charged around the 2nd; first check 2 Dec 2026.
 - [ ] Opik: read the `fastpilot` project's trace retention and tell the agent, to record it.
