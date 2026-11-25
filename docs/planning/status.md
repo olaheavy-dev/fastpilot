@@ -2,7 +2,7 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 23:47 UTC (end of session)
+**Updated:** 25 Nov 2026, 23:55 UTC (end of session; Dependabot's first PRs)
 
 ## Start of the next session
 
@@ -10,11 +10,18 @@ The current state, the planned work and the open to-dos. Keep this file current:
 2. **Deploy after the check:** `sha-` of `main` (#47 dependency alerts, #49 UI fixes, #63 Streamlit usage statistics off, #66 backend telemetry off) with `deploy-fastpilot.sh --stage containers`. Then check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), the public checks in both themes, and that the frontend log no longer says "Collecting usage statistics".
 3. **Uptime check:** GitHub is running the organisation's scheduled jobs 11 to 13 hours late (personal-website's 06:17 job ran at 17:07), so `uptime.yml` has never run on its schedule; only the manual run at 14:34 on 25 Nov (passed). Your choice, 25 Nov: **"Wait a day on GitHub"**. On 26 Nov, look for any scheduled run; if none, decide between UptimeRobot's free plan and a check from the server. Infra #102 stays open until a scheduled run passes under your account.
 4. **#65: self-host the fonts and the Monaco editor** (your choice: "Self-host both (Recommended)"): plan it, then build. The Monaco CDN address is compiled into `streamlit_monaco`'s bundle, so the build copies pinned Monaco files into the image and rewrites the address, with a test that fails if the CDN address comes back.
-5. Then Part 0 of the corpus refresh (#29), which needs your three R2 tokens.
+5. The Dependabot PRs (see Open pull requests).
+6. Then Part 0 of the corpus refresh (#29), which needs your three R2 tokens.
 
 ## Open pull requests
 
-None in FastPilot. Infra: none.
+Dependabot's first batch (opened 25 Nov, after #48). None is a security fix and none reaches production until a deploy. Work through them after the 48-hour check and the deploy, small ones first (`wiki/dependency-updates.md`):
+
+- **Small updates, merge on green after the constraints step:** #60 fakeredis 2.36→2.40, #58 pytest-asyncio 1.4→1.5, #57 playwright 1.60→1.65 (test tools only). Run `scripts/export_constraints.sh` on each branch first, one PR at a time.
+- **Major bumps, review first:** #59 ruff 0.15→0.17 (a `0.x` minor counts as major), #51 actions/setup-python 6→7, #53 actions/checkout 5→7, #54 docker/setup-buildx-action 3→4, #55 docker/login-action 3→4, #56 docker/metadata-action 5→6. #54–#56 change the image-publishing workflow: merge them after tomorrow's deploy, not before.
+- **Image PR, review first (your rule):** #52 qdrant/qdrant v1.18.0→v1.18.3: the local check against a restored snapshot, then a deploy at a quiet time. `qdrant-client` stays on 1.18.
+
+Infra: none.
 
 ## Where we are
 
