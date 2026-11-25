@@ -8,7 +8,8 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 ## 2026-11-25 — Backend telemetry off (#64)
 
 - The review of #61 found that haystack-ai sends anonymous telemetry to PostHog (`eu.posthog.com`) unless `HAYSTACK_TELEMETRY_ENABLED` is false; nothing set it. Founder, 25 Nov 2026: "Turn it off (Recommended)".
-- `app/__init__.py` sets `HAYSTACK_TELEMETRY_ENABLED=False` and `HF_HUB_DISABLE_TELEMETRY=1` with `setdefault`, before any Haystack import. It is in code, not in the Compose file, because infra's allow-list fixes the backend's `environment` keys. `tests/test_telemetry.py` checks it in a fresh process; it fails without the change.
+- The fresh review found more: Opik starts Sentry crash reporting to Comet on import, even without a key (founder: "Turn it off too (Recommended)"; Opik traces unaffected), and `scripts/07_reindex_production.py` imported Haystack before `app`.
+- `app/__init__.py` **forces** `HAYSTACK_TELEMETRY_ENABLED=False`, `OPIK_SENTRY_ENABLE=false` and `HF_HUB_DISABLE_TELEMETRY=1` (founder: "Force off (Recommended)"), before any of those libraries load. It is in code, not the Compose file, because infra's allow-list fixes the backend's `environment` keys. `scripts/_bootstrap.py`, the reindex script and `tests/conftest.py` import `app` first; the refresh plan says `corpus/__init__.py` will too; [[coding-conventions]] states the rule; `docs/production-decisions.md` records the decisions. `tests/test_telemetry.py` checks all three in fresh processes, including that an env file setting them on can't; it fails without the change.
 
 ## 2026-11-25 — Weekly Dependabot updates
 

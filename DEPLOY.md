@@ -44,7 +44,7 @@ that to work on a public host:
 no published ports (Caddy reaches the frontend on `caddy_net`), Qdrant 1.18 and Redis 8 pinned by digest, a
 memory cap on every service (1,728 MB in total) and one env file per service, so the internet-facing frontend
 holds no API keys. Copy the `deploy/*.env.example` files and `deploy/redis.conf.example`, fill them in, and never
-commit them (`.gitignore` covers `deploy/*.env` and `deploy/redis.conf`). The infra repository's
+commit them (`.gitignore` covers `deploy/*.env` and `deploy/redis.conf`). Third-party telemetry (Haystack, Opik's crash reports, Hugging Face) is forced off in code (`app/__init__.py`, #64), so the env files need no telemetry settings. The infra repository's
 `deploy-fastpilot.sh` replaces `__FASTPILOT_TAG__` with a `sha-<commit>` tag, checks the file and deploys it.
 
 **Index.** Build it on the Mac (the corpus lives in the capstone repository):

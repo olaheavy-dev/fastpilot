@@ -13,7 +13,7 @@ The current state, the planned work and the open to-dos. Keep this file current:
 
 ## Open pull requests
 
-- **Haystack and Hugging Face telemetry off** (#64): set in `app/__init__.py` before Haystack loads; your choice, 25 Nov: "Turn it off (Recommended)". Ships with the #47/#49 deploy.
+- **Backend telemetry off** (#64): Haystack (PostHog), Opik's own crash reports (Sentry; traces unaffected) and Hugging Face, forced off in `app/__init__.py`; your choices, 25 Nov: "Turn it off (Recommended)", "Turn it off too (Recommended)", "Force off (Recommended)". Ships with the #47/#49 deploy.
 - **#48 Weekly Dependabot updates** (`uv`, GitHub Actions, the production Compose images): `.github/dependabot.yml` and [`wiki/dependency-updates.md`](../../wiki/dependency-updates.md). Waiting for Codex.
 
 ## Where we are

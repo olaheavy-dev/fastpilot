@@ -14,6 +14,8 @@ _SUBMISSION_DIR = Path(__file__).resolve().parent.parent
 if str(_SUBMISSION_DIR) not in sys.path:
     sys.path.insert(0, str(_SUBMISSION_DIR))
 
+import app  # noqa: E402,F401  (telemetry off before any haystack import, #64)
+
 try:
     import truststore
 
