@@ -140,3 +140,12 @@ def test_playground_editor_uses_a_dark_syntax_theme_in_dark_mode(monkeypatch, st
 
     monkeypatch.setattr(playground_view.st, "context", Ctx())
     assert playground_view._monaco_theme() == expected
+
+
+def test_streamlit_usage_statistics_are_off():
+    """Visitors' browsers must not send usage statistics to Streamlit (#61): the privacy
+    note names only Opik."""
+    from streamlit import config as st_config
+
+    assert "browser.gatherUsageStats" in st_config._config_options  # the key Streamlit really reads
+    assert CONFIG["browser"]["gatherUsageStats"] is False

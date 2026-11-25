@@ -38,3 +38,9 @@ borderColor = "#28324A"
 
 [server]
 headless = true
+
+# Visitors' browsers send nothing to Streamlit: its anonymous usage statistics are on by
+# default (founder, 25 Nov 2026: "Turn it off (Recommended)"; #61). The privacy note
+# mentions only Opik, which stays true with this off.
+[browser]
+gatherUsageStats = false

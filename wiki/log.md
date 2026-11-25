@@ -5,6 +5,11 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Streamlit usage statistics off (#61)
+
+- Found in the 22d 24-hour watch: the production frontend logged "Collecting usage statistics", because Streamlit's `browser.gatherUsageStats` defaults to on, so visitors' browsers sent anonymous usage data to Streamlit. The privacy note names only Opik.
+- `frontend/.streamlit/config.toml` now sets `[browser] gatherUsageStats = false` (founder, 25 Nov 2026: "Turn it off (Recommended)"). `streamlit config show` confirms it, and `test_streamlit_usage_statistics_are_off` guards it.
+
 ## 2026-11-25 — Weekly Dependabot updates
 
 - **#47 merged:** all 138 alerts cleared on `main` (deploy after the 48-hour watch).
