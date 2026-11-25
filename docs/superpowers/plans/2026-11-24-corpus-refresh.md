@@ -304,7 +304,7 @@ The first live refresh run is dispatched only after Part 4 (it needs a baseline)
 
 ### Task 3.1: `corpus-refresh.yml` and `corpus-rollback.yml`
 
-**Files:** Create `.github/workflows/corpus-refresh.yml`, `.github/workflows/corpus-rollback.yml`, `.github/dependabot.yml` (a `github-actions` entry; the file may already exist from the weekly Dependabot PR planned on 25 Nov, so extend it instead of creating it). Test: `tests/test_workflows.py`.
+**Files:** Create `.github/workflows/corpus-refresh.yml`, `.github/workflows/corpus-rollback.yml`. No change to `.github/dependabot.yml` is needed: its `github-actions` entry (added 25 Nov 2026) covers every workflow under `.github/workflows/`, including SHA-pinned actions. Test: `tests/test_workflows.py`.
 
 - [ ] **Step 1: Write the failing tests:**
   - `test_corpus_refresh_workflow_shape`: triggers `workflow_dispatch` with a boolean `force`, and optionally a `schedule` whose only entry is exactly `cron: "0 4 2 * *"`; `permissions` exactly `contents: read`, `issues: write`; `environment: corpus-refresh`; `concurrency.group == "corpus-refresh"`, `cancel-in-progress: false`; `timeout-minutes` from Task 2.6 Step 5; `services.qdrant` with the pinned image, `options: --memory 256m`, and a constant runner-local API key (not a secret); checkout with `persist-credentials: false`; `astral-sh/setup-uv` and every action pinned by full commit SHA; steps in order: build-and-evaluate (`--until decide`), publish (`--stage publish --publish`), failure report (`if: failure() || cancelled()`, `--report-failure`); no `upload-artifact`.

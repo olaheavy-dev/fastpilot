@@ -2,9 +2,11 @@
 # then "Yes, after the alert fix (Recommended)"). Security alerts are separate and always on.
 # Options: https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
 #
-# uv PRs change only uv.lock. CI also checks app/ and frontend/constraints.txt against the
-# lock, so each uv PR fails CI until `scripts/export_constraints.sh` is run on its branch
-# and the result pushed (see wiki/dependency-updates.md).
+# Version updates cover direct dependencies only (the packages named in pyproject.toml).
+# uv PRs change only uv.lock (lockfile-only below). CI also checks app/ and
+# frontend/constraints.txt against the lock, so each uv PR fails CI until
+# `scripts/export_constraints.sh` is run on its branch and the result pushed
+# (see wiki/dependency-updates.md).
 version: 2
 updates:
   - package-ecosystem: "uv"
@@ -14,7 +16,10 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "Europe/London"
-    # Wait 7 days after a release before proposing it (house rule: 7-day cooldown).
+    # Never edit pyproject.toml: every bound there is an open ">=", so a lock change is enough.
+    versioning-strategy: "lockfile-only"
+    # Wait 7 days after a release before proposing it (mirrors the house rules' 7-day
+    # cooldown for skill and plugin updates).
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
@@ -28,6 +33,10 @@ updates:
       # deploy/docker-compose.prod.yml); move both together.
       - dependency-name: "qdrant-client"
         versions: [">=1.19"]
+      # Haystack 3 is a planned migration, not a weekly update: a major Haystack change
+      # broke every Chat answer on 23 Nov 2026. Covers haystack-ai and its integrations.
+      - dependency-name: "*haystack*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
