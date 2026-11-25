@@ -5,6 +5,14 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Session hand-over (night)
+
+- **24-hour watch (22d), 23:08 UTC:** all five containers healthy on `sha-7517b7a`, no OOM kills; memory peaks against caps: backend 304/384 MB, frontend 80/256, runner 42/768, Redis 11/64, Qdrant 256/256 (page cache at its cap 1,302 times, only about 21 MB its own memory; never killed). The runner's 3 restarts are its 6-hourly rule (clean exit 0). No backend errors; the 24 Caddy errors all fall in 23 seconds during the 24 Nov 23:52 redeploy. Very light traffic (3 Gemini calls, 2 searches); spend far below the caps.
+- **Found and fixed from the watch:** Streamlit usage statistics (#63) and backend telemetry (#66) off; Opik is-alive pings (#62) and fonts/CDN (#65) opened.
+- **Merged today:** #42, #43, #47, #48, #49, #50, #63, #66; infra #114, #115, #119, #121, #123. App Registry redeployed on the server (production card links the production page).
+- **Uptime:** GitHub runs the organisation's scheduled jobs 11 to 13 hours late, so `uptime.yml` has not run on schedule; founder: "Wait a day on GitHub".
+- The status file holds the next steps and founder to-dos.
+
 ## 2026-11-25 — Backend telemetry off (#64)
 
 - The review of #61 found that haystack-ai sends anonymous telemetry to PostHog (`eu.posthog.com`) unless `HAYSTACK_TELEMETRY_ENABLED` is false; nothing set it. Founder, 25 Nov 2026: "Turn it off (Recommended)".
