@@ -123,7 +123,7 @@ services:
       start_interval: 2s
 
   qdrant:
-    image: qdrant/qdrant:v1.18.0@sha256:b3063c673f3973877c038eeecc392bad5011f072ee7892b56c9a8e204a3bdea9
+    image: qdrant/qdrant:v1.18.3@sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286
     container_name: fastpilot-prod-qdrant
     env_file:
       - ./qdrant.env  # QDRANT__SERVICE__API_KEY only
