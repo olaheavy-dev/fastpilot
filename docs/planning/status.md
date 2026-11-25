@@ -2,18 +2,18 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 23:17 UTC (Streamlit usage statistics off, #61)
+**Updated:** 25 Nov 2026, 23:33 UTC (telemetry off, #64; #63 merged)
 
 ## Start of the next session
 
 1. **22d: the 24-hour watch is done** (25 Nov, 23:08 UTC): all containers healthy, no OOM, the runner's only restarts are its 6-hourly rule, very light traffic, spend far below the caps; Qdrant's page cache reaches its 256 MB cap (not killed). **The 48-hour check is at about 21:20 UTC on 26 Nov** (WireGuard on); then the founder decides whether Agent and Playground stay on.
 2. **Infra #114 and #115 merged** (25 Nov): go-live records and architecture pages; the uptime check moved to FastPilot (#50, merged).
-3. **Deploy #47 and #49 (both merged) after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes.
+3. **Deploy #47, #49, #63 and #66 (merged by then) after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes.
 4. Then **22e**: infra #114 and #115 are merged; the uptime check now runs from FastPilot (`uptime.yml`, #50 merged 25 Nov). Infra #102 closes after a manual run and the first scheduled run pass with the founder's account as actor. Then step 5 (App Registry and the FastPilot pages in infra), then Part 0 of the refresh (#29).
 
 ## Open pull requests
 
-- **Streamlit usage statistics off** (#61): `browser.gatherUsageStats = false`; your choice, 25 Nov: "Turn it off (Recommended)". Ships with the #47/#49 deploy.
+- **#66 Backend telemetry off** (#64): Haystack (PostHog), Opik's own crash reports (Sentry; traces unaffected) and Hugging Face, forced off in `app/__init__.py`; your choices, 25 Nov: "Turn it off (Recommended)", "Turn it off too (Recommended)", "Force off (Recommended)". Ships with the #47/#49 deploy.
 
 ## Where we are
 

@@ -29,6 +29,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from types import ModuleType
 
+import app  # noqa: F401  (telemetry off before any haystack import, #64)
 from haystack import Document
 
 NEW_COLLECTION = "rag_accelerator_capstone_final"

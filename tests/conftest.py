@@ -15,6 +15,8 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
+import app as _telemetry_off  # noqa: F401  (before any haystack import: telemetry off, #64)
+
 
 # --- Network guard --------------------------------------------------------
 @pytest.fixture(autouse=True)
