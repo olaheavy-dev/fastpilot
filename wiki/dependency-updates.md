@@ -8,9 +8,9 @@ How FastPilot's packages stay current and safe. The config is `.github/dependabo
 |---|---|---|
 | **Alerts** | Reports a known vulnerability in any package in `uv.lock`, including indirect ones. Shown under the repository's Security tab. | 25 Nov 2026 (before then they were off) |
 | **Version updates** | Opens pull requests each Monday at 06:00 (London time) for newer versions of the **direct** `uv` dependencies (the packages named in `pyproject.toml`), GitHub Actions, and the pinned Qdrant and Redis images in `deploy/docker-compose.prod.yml`. Adding or changing the config also starts a check straight away. | 25 Nov 2026 |
-| **Security updates** | Would open a pull request for an alert, including in indirect packages. | Off (a repository setting; the founder decides) |
+| **Security updates** | Opens a pull request for an alert, including in indirect packages. Each needs the constraints step below. | 25 Nov 2026 (founder: "Yes, turn them on (Recommended)") |
 
-The first alert scan found 138 open alerts, all in **indirect** packages; PR #47 cleared all of them (see [[log]], 25 Nov 2026). Weekly version updates do not cover indirect packages. While security updates are off, an alert in an indirect package is fixed by hand: run `uv lock --upgrade-package <name>`, then follow the steps below.
+The first alert scan found 138 open alerts, all in **indirect** packages; PR #47 cleared all of them (see [[log]], 25 Nov 2026). Weekly version updates do not cover indirect packages. Security updates now open a pull request for such an alert; if one cannot (for example when a parent package caps the version), fix it by hand with `uv lock --upgrade-package <name>`, then follow the steps below.
 
 ## What the config does
 
@@ -39,6 +39,8 @@ On the first uv pull request, also check the `uv.lock` diff for header or format
 ## Handling a `docker-compose` pull request
 
 These update the pinned Qdrant and Redis images in `deploy/docker-compose.prod.yml`. Only patch releases arrive: Qdrant `v1.18.x`, and Redis digest refreshes of `8.4`. **CI never starts these images**, so a green check proves nothing about them.
+
+**Rule (founder, 25 Nov 2026: "No, review first (Recommended)"):** image pull requests never merge on green checks alone, even though they are small updates. They merge only after steps 1 and 2 below pass and the result is written in the pull request.
 
 1. Check that the pull request changes both the tag and the `@sha256` digest.
 2. Start the new image locally (`deploy/docker-compose.local.yml`) and run the integration tests against it (`-m integration`, see [[testing-strategy]]). For Redis, these cover the semantic cache's search index. For Qdrant, also run a search against a restored snapshot.
