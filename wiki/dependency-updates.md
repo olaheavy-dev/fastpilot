@@ -16,7 +16,7 @@ The first alert scan found 138 open alerts, all in **indirect** packages; PR #47
 
 - **7-day cooldown:** a new release is proposed only 7 days after it comes out. This gives the maintainers time to withdraw a bad release.
 - **Patch releases are grouped** into one pull request. Minor and major updates stay one pull request each, because for a package whose version starts with `0.`, a minor bump counts as major.
-- **`qdrant-client` stays below 1.19 and the `qdrant/qdrant` image gets patch releases only (v1.18.x)**, so the client matches the production server. Move the client and the server together, in one planned change. Image updates in `deploy/docker-compose.prod.yml` keep their `@sha256` digest pin; check that the new pull request updates both the tag and the digest.
+- **`qdrant-client` stays below 1.19 and the `qdrant/qdrant` image gets patch releases only (v1.18.x)**, so the client matches the production server. Move the client and the server together, in one planned change. Image updates in `deploy/docker-compose.prod.yml` keep their `@sha256` digest pin; a pull request always changes the digest, and changes the tag only for a new patch release (Redis `8.4` refreshes keep the tag).
 - **Haystack major versions are never proposed** (`*haystack*`, major updates ignored). Haystack 3 is a planned migration; a major Haystack change broke every Chat answer on 23 Nov 2026.
 - **`lockfile-only`:** Dependabot changes only `uv.lock`, never `pyproject.toml` (every bound there is an open `>=`). Check the first pull request's diff to confirm.
 - At most 5 open pull requests per ecosystem.
@@ -42,7 +42,7 @@ These update the pinned Qdrant and Redis images in `deploy/docker-compose.prod.y
 
 **Rule (founder, 25 Nov 2026: "No, review first (Recommended)"):** image pull requests never merge on green checks alone, even though they are small updates. They merge only after steps 1 and 2 below pass and the result is written in the pull request.
 
-1. Check that the pull request changes both the tag and the `@sha256` digest.
+1. Check the `@sha256` digest changed, and that it belongs to the tag shown. A Qdrant patch release changes the tag (`v1.18.0` → `v1.18.1`) and the digest; a Redis refresh keeps the tag `8.4` and changes only the digest. Both are expected.
 2. **Redis:** start the new image by itself on the test port and point the integration tests at it. The local Compose stack keeps Redis on an internal network with no published port, so the tests would not reach it there. Run `docker run --rm -d --name redis-candidate -p 6380:6379 <image>@<digest>`, then `REDIS_TEST_URL=redis://localhost:6380 uv run --frozen pytest -m integration tests/test_integration.py`, then `docker stop redis-candidate`. These tests cover the semantic cache's search index (RediSearch, built into Redis 8). **Qdrant:** start the new image with the local stack (`deploy/docker-compose.local.yml`) and restore the production snapshot into it, then run a search.
 3. Deploy with the infra helper at a quiet time. A Redis image change restarts Redis with no persistence: rate-limit counters, chat memory and the answer cache start empty (accepted by decision; they rebuild).
 4. After deploy, check that `/health` shows the cache available and the index's point count unchanged.
