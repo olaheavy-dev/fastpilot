@@ -2,22 +2,23 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 14:00 UTC (dependency alerts)
+**Updated:** 25 Nov 2026, 15:30 UTC (dependency alerts)
 
 ## Start of the next session
 
 1. **22d, 24-hour watch, about 21:20 UTC on 25 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, backend and runner logs, rate-limit refusals, Gemini usage against the $10 cap and Voyage against the $7.50 alert. Post a short summary. The 48-hour check is at the same time on 26 Nov; then the founder decides whether Agent and Playground stay on.
 2. **Infra #114** (go-live records, architecture pages, the `sha-7517b7a` deploy log): Codex clean, no open threads; the founder merges it.
-3. Then **22e** (uptime check to the new site, infra #102; App Registry), then the refresh plan follow-ups **#34, #35, #36** (documentation only), then Part 0 of the refresh (#29).
+3. **Deploy the dependency-alerts PR after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
+4. Then **22e** (uptime check to the new site, infra #102; App Registry), then Part 0 of the refresh (#29).
 
 ## Open pull requests
 
 - **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
-- **Dependency alerts**: lock-file upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
+- **Dependency alerts**: lock upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
 
 ## Where we are
 
-- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts in indirect packages in `uv.lock`, all shipping in both images (8 critical, 83 high, 44 moderate, 3 low). The dependency-alerts PR clears all 138 by upgrading the lock. Your choice: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67, fastembed 0.9.1 and voyageai 0.6. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Next: a weekly `.github/dependabot.yml` (your choice: "Yes, after the alert fix (Recommended)").
+- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts (8 critical, 83 high, 44 moderate, 3 low) in indirect packages in `uv.lock`, each shipping in the backend image, the frontend image or both. The dependency-alerts PR clears all 138 by upgrading the lock; an OSV scan of the new lock finds none. Your choices: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67 and fastembed 0.9.1; and "Upgrade, approve boto3 (Recommended)" for litellm 1.111, which puts `boto3` in the backend image. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Next: a weekly `.github/dependabot.yml` (your choice: "Yes, after the alert fix (Recommended)").
 - **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on (Phase 22c, infra #112 and the infra log). Now on image `sha-7517b7a` (theme fix, deployed the same night). All runner proofs and public checks passed. The 48-hour watch (22d) runs until 26 Nov.
 - **Themes fixed and deployed (24 Nov, about 23:55 UTC):** the app follows the visitor's system theme (the toggle is removed; your choice: "Follow the system only (Recommended)"), with code, link and border colours set for both themes and a readable Playground editor in dark mode (#40). Production runs `sha-7517b7a`; live checks in both themes passed. You chose "Stay on Streamlit (Recommended)": no React rewrite.
 - **Model:** `gemini-3.8-flash` with `gemini-3.5-flash-lite` as fallback (#32), running in production.
@@ -39,7 +40,7 @@ flowchart LR
 | # | Work | State | Who merges |
 |---|---|---|---|
 | 1 | #32 production model | merged 24 Nov | done |
-| 2 | #33 corpus refresh design, plan and this file | merged 24 Nov after five Codex rounds; three plan follow-ups open: #34 and #35 (before Part 2), #36 (before Part 5) | done |
+| 2 | #33 corpus refresh design, plan and this file | merged 24 Nov after five Codex rounds; the three plan follow-ups (#34, #35, #36) folded into the plan and design on 25 Nov | done |
 | 3 | Phase 22c go live (infra plan) | done 24 Nov: steps 1 to 7 passed; live at fastpilot.olaheavy.dev | done |
 | 4 | Phase 22d watch, 22e uptime (infra #102) | 22d now: summaries about 21:20 UTC on 25 and 26 Nov; then 22e | founder (infra) |
 | 5 | Corpus refresh build (#29), seven PRs: [plan](../superpowers/plans/2026-11-24-corpus-refresh.md), [diagrams](https://claude.ai/artifact/Wjm2iHjE9zDAYvH1taet5R); plan reworked on 24 Nov after two fresh reviews | after go-live; subagent-driven | founder for Parts 0, 1, 2, 3, 5 and the bootstrap lock; agent for Part 4 |
@@ -57,7 +58,7 @@ flowchart LR
 - [ ] Delete the old Qdrant Cloud cluster in its dashboard, and the `QDRANT_URL` line in FastPilot's `.env`.
 - [ ] Before the refresh build: create the three R2 tokens for `fastpilot-corpus` (read-write for the workflow's publish and rollback, read-only for its other steps, read-only for the server; Part 0 of the plan), and note each one's expiry.
 - [ ] Before Part 3: create a separate Gemini project `fastpilot-refresh` with its own key and its own AI Studio monthly spend cap (your choice, 24 Nov: "Separate project and key"), and the GitHub Environment `corpus-refresh` limited to `main`.
-- [ ] When the refresh PRs ask: approve the new packages (`beautifulsoup4`, `markdownify`, `lxml`, an S3 client).
+- [ ] When the refresh PRs ask: approve the new packages (`beautifulsoup4`, `markdownify`, `lxml`; on the server an S3 client and `jq`). `boto3` is already approved (25 Nov, with litellm).
 
 ## Decisions waiting for the founder
 
@@ -69,4 +70,4 @@ None.
 
 ## Open issues worth knowing
 
-#23 (compose ports; handled by the production file), #29 (refresh), #34 and #35 (refresh plan follow-ups from Codex round 4, fix before Part 2 (PR 2) is built), #36 (updater recovery when the live collection is missing, fix before Part 5 is built), #30 (MCP), #31 (model follow-ups), #38 (README badges and wiki link point to the old repository), infra #102 (uptime), infra #111 (the index-restore helper fails on a brief `yellow` status).
+#23 (compose ports; handled by the production file), #29 (refresh), #30 (MCP), #31 (model follow-ups), #38 (README badges and wiki link point to the old repository), infra #102 (uptime), infra #111 (the index-restore helper fails on a brief `yellow` status).

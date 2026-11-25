@@ -8,6 +8,7 @@
 - **Python 3.11–3.13.** Every module starts with `from __future__ import annotations`.
 - Modern type hints throughout: `str | None`, `list[dict[str, Any]]`, `tuple[bool, Optional[str]]`.
 - Public functions and dataclasses are fully annotated. Internal one-liners may use `# noqa: ANN`.
+- Editor type checking: `pyrightconfig.json` (committed) points Pyright and Pylance at `.venv` and `frontend/`, checks against Python 3.11 (the lowest supported version, the same as ruff's target) in `standard` mode. CI does not run Pyright; it is an editor aid only.
 
 ## Linting + formatting **(lint)**
 Ruff, configured in `pyproject.toml`:
