@@ -170,10 +170,13 @@ async def agent_stream(body: dict):
 
 @app.post("/execute")
 def execute(body: dict):
+    # Echo a marker back when the code carries one, so a test can prove an edit made in the
+    # Monaco editor reached /execute (not the starter code).
+    marker = "\nreceived: EDIT_MARKER_42" if "EDIT_MARKER_42" in str(body.get("code", "")) else ""
     return {
         "ok": True,
         "exit_code": 0,
-        "stdout": "valid: 200\ninvalid: 422",
+        "stdout": "valid: 200\ninvalid: 422" + marker,
         "stderr": "",
         "duration_ms": 2400,
         "guard": None,

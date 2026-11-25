@@ -5,6 +5,22 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Dependency alerts cleared
+
+- **Dependabot alerts turned on** (they were off): 138 open alerts, all in indirect packages in `uv.lock` that ship in both images (8 critical, 83 high, 44 moderate, 3 low).
+- **Founder's choice: "Do everything in one go"** (over a lock-only fix with Pillow later). The lock upgrade clears all 138. The main moves:
+  - Pillow 12.2 → 13.0 (needs Streamlit 1.58 → 1.67, fastembed 0.8.0 → 0.9.1 and voyageai 0.4.1 → 0.6.0)
+  - GitPython removed (Streamlit 1.67 no longer needs it)
+  - certifi, anyio, aiohttp, cryptography, urllib3, pyasn1, filelock, h2, hpack and multidict
+  - litellm 1.89 → 1.95.1 (held below 1.96, which would add `boto3`)
+  - Our own `pyproject.toml` is unchanged.
+- **Checks:**
+  - fastembed 0.8.0 and 0.9.1 give byte-identical BM25 vectors (111 chunks, 8 queries), so no re-index is needed.
+  - A live Voyage smoke test (embed at 2,048 dimensions, rerank, and Haystack's `VoyageTextEmbedder`, cosine 1.0 against a direct call) passes.
+  - The main suite and the 12 Playwright visual tests (both themes, 390 and 1280 px) pass on Streamlit 1.67.
+- **Local finding:** `.venv/bin/pytest` still pointed at the pre-move `~/source/code/rag/fastpilot/.venv`, so local `uv run pytest` ran old packages. Rebuilt `.venv`. CI was not affected (fresh install).
+- Deploy after the 48-hour watch (26 Nov). Next: a weekly `.github/dependabot.yml` (founder: "Yes, after the alert fix (Recommended)").
+
 ## 2026-11-25 — Session hand-over
 
 - **Merged 24 Nov:** #33 (refresh design and plan), #37 (Voyage and Gemini spend decisions), #39 (live), #40 (themes), #41 (deploy record); infra #112 (DNS record). **Open:** infra #114 (founder merge).

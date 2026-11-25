@@ -2,7 +2,7 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 00:10 UTC (end of session)
+**Updated:** 25 Nov 2026, 14:00 UTC (dependency alerts)
 
 ## Start of the next session
 
@@ -13,9 +13,11 @@ The current state, the planned work and the open to-dos. Keep this file current:
 ## Open pull requests
 
 - **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
+- **Dependency alerts**: lock-file upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
 
 ## Where we are
 
+- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts in indirect packages in `uv.lock`, all shipping in both images (8 critical, 83 high, 44 moderate, 3 low). The dependency-alerts PR clears all 138 by upgrading the lock. Your choice: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67, fastembed 0.9.1 and voyageai 0.6. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Next: a weekly `.github/dependabot.yml` (your choice: "Yes, after the alert fix (Recommended)").
 - **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on (Phase 22c, infra #112 and the infra log). Now on image `sha-7517b7a` (theme fix, deployed the same night). All runner proofs and public checks passed. The 48-hour watch (22d) runs until 26 Nov.
 - **Themes fixed and deployed (24 Nov, about 23:55 UTC):** the app follows the visitor's system theme (the toggle is removed; your choice: "Follow the system only (Recommended)"), with code, link and border colours set for both themes and a readable Playground editor in dark mode (#40). Production runs `sha-7517b7a`; live checks in both themes passed. You chose "Stay on Streamlit (Recommended)": no React rewrite.
 - **Model:** `gemini-3.8-flash` with `gemini-3.5-flash-lite` as fallback (#32), running in production.

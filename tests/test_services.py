@@ -593,3 +593,15 @@ def test_conversation_session_info_demotes_on_error():
     # A runtime failure during session-info read degrades to in-memory (None here), no 5xx.
     assert conv.get_session_info("sess_x") is None
     assert conv.degraded is True
+
+
+def test_cache_embedder_refuses_missing_voyage_key():
+    """voyageai >= 0.6 builds a client without a key, so the cache must check itself;
+    otherwise it reports available and every lookup fails quietly."""
+    import pytest
+
+    from app.services.semantic_cache import _CacheEmbedder
+
+    with pytest.raises(ValueError, match="VOYAGE_API_KEY"):
+        _CacheEmbedder("voyage-4-lite", 2048, "")
+    assert _CacheEmbedder("voyage-4-lite", 2048, "test-key").client is not None

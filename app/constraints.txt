@@ -1,6 +1,6 @@
 aiohappyeyeballs==2.6.2
     # via aiohttp
-aiohttp==3.14.1
+aiohttp==3.14.5
     # via
     #   google-genai
     #   litellm
@@ -17,10 +17,11 @@ annotated-doc==0.0.4
     #   typer
 annotated-types==0.7.0
     # via pydantic
-anyio==4.14.0
+anyio==4.14.2
     # via
     #   google-genai
     #   httpx
+    #   litellm
     #   openai
     #   starlette
     #   streamlit
@@ -34,18 +35,21 @@ attrs==26.1.0
     #   referencing
 backoff==2.2.1
     # via posthog
-blinker==1.9.0
-    # via streamlit
+boto3==1.44.11
+    # via litellm
 boto3-stubs==1.43.34
     # via opik
+botocore==1.44.11
+    # via
+    #   boto3
+    #   s3transfer
 botocore-stubs==1.43.14
     # via boto3-stubs
-cachetools==7.1.4
-    # via streamlit
-certifi==2026.6.17
+certifi==2026.11.20
     # via
     #   httpcore
     #   httpx
+    #   litellm
     #   requests
     #   sentry-sdk
 cffi==2.0.0 ; platform_python_implementation != 'PyPy'
@@ -67,7 +71,7 @@ colorama==0.4.6 ; sys_platform == 'win32'
     #   pytest
     #   tqdm
     #   uvicorn
-cryptography==49.0.0
+cryptography==50.0.2
     # via google-auth
 distro==1.9.0
     # via
@@ -78,16 +82,16 @@ docstring-parser==0.18.0
     # via haystack-ai
 fastapi==0.138.0
     # via fastpilot
-fastembed==0.8.0
+fastembed==0.9.1
     # via fastembed-haystack
 fastembed-haystack==2.3.0
     # via fastpilot
 fastuuid==0.14.0
     # via litellm
-ffmpeg-python==0.2.0
-    # via voyageai
-filelock==3.29.4
-    # via huggingface-hub
+filelock==4.3.1
+    # via
+    #   huggingface-hub
+    #   litellm
 filetype==1.2.0
     # via haystack-ai
 flatbuffers==25.12.19
@@ -98,12 +102,6 @@ frozenlist==1.8.0
     #   aiosignal
 fsspec==2026.6.0
     # via huggingface-hub
-future==1.0.0
-    # via ffmpeg-python
-gitdb==4.0.12
-    # via gitpython
-gitpython==3.1.50
-    # via streamlit
 google-auth==2.55.0
     # via google-genai
 google-genai==2.9.0
@@ -118,7 +116,7 @@ h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
-h2==4.3.0
+h2==4.4.1
     # via httpx
 haystack-ai==2.30.2
     # via
@@ -134,14 +132,12 @@ hf-xet==1.5.1 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or 
     # via huggingface-hub
 hiredis==3.4.0
     # via redis
-hpack==4.1.0
+hpack==4.2.0
     # via h2
 httpcore==1.0.9
     # via httpx
 httptools==0.8.0
-    # via
-    #   streamlit
-    #   uvicorn
+    # via uvicorn
 httpx==0.28.1
     # via
     #   fastpilot
@@ -156,6 +152,7 @@ httpx==0.28.1
 huggingface-hub==1.20.1
     # via
     #   fastembed
+    #   litellm
     #   tokenizers
 hyperframe==6.1.0
     # via h2
@@ -180,6 +177,10 @@ jinja2==3.1.6
     #   pydeck
 jiter==0.15.0
     # via openai
+jmespath==1.1.0
+    # via
+    #   boto3
+    #   botocore
 jsonpatch==1.33
     # via langchain-core
 jsonpointer==3.1.1
@@ -203,7 +204,7 @@ langsmith==0.8.18
     # via langchain-core
 lazy-imports==1.2.0
     # via haystack-ai
-litellm==1.89.2
+litellm==1.111.0
     # via opik
 loguru==0.7.3
     # via fastembed
@@ -219,7 +220,7 @@ mmh3==5.2.1
     # via fastembed
 more-itertools==11.1.0
     # via haystack-ai
-multidict==6.7.1
+multidict==7.2.1
     # via
     #   aiohttp
     #   yarl
@@ -257,12 +258,13 @@ packaging==26.2
     #   huggingface-hub
     #   langchain-core
     #   langsmith
+    #   litellm
     #   onnxruntime
     #   pytest
     #   streamlit
 pandas==3.0.3
     # via streamlit
-pillow==12.2.0
+pillow==13.0.0
     # via
     #   fastembed
     #   streamlit
@@ -286,7 +288,7 @@ py-rust-stemmers==0.1.8
     # via fastembed
 pyarrow==24.0.0
     # via streamlit
-pyasn1==0.6.3
+pyasn1==0.6.5
     # via pyasn1-modules
 pyasn1-modules==0.4.2
     # via google-auth
@@ -311,6 +313,7 @@ pydantic-core==2.46.4
 pydantic-settings==2.14.2
     # via
     #   fastpilot
+    #   litellm
     #   opik
 pydeck==0.9.2
     # via streamlit
@@ -322,6 +325,7 @@ pytest==9.1.1
     # via opik
 python-dateutil==2.9.0.post0
     # via
+    #   botocore
     #   haystack-ai
     #   pandas
 python-dotenv==1.2.2
@@ -339,6 +343,7 @@ pyyaml==6.0.3
     #   haystack-ai
     #   huggingface-hub
     #   langchain-core
+    #   litellm
     #   uvicorn
 qdrant-client==1.18.0
     # via
@@ -378,14 +383,14 @@ rpds-py==2026.5.1
     # via
     #   jsonschema
     #   referencing
+s3transfer==0.19.3
+    # via boto3
 sentry-sdk==2.63.0
     # via opik
 shellingham==1.5.4
     # via typer
 six==1.17.0
     # via python-dateutil
-smmap==5.0.3
-    # via gitdb
 sniffio==1.3.1
     # via
     #   google-genai
@@ -394,7 +399,7 @@ starlette==1.3.1
     # via
     #   fastapi
     #   streamlit
-streamlit==1.58.0
+streamlit==1.67.0
     # via
     #   fastpilot
     #   streamlit-monaco
@@ -406,7 +411,6 @@ tenacity==9.1.4
     #   haystack-ai
     #   langchain-core
     #   opik
-    #   streamlit
     #   voyageai
 tiktoken==0.13.0
     # via litellm
@@ -415,8 +419,6 @@ tokenizers==0.23.1
     #   fastembed
     #   litellm
     #   voyageai
-toml==0.10.2
-    # via streamlit
 tqdm==4.68.3
     # via
     #   fastembed
@@ -450,6 +452,7 @@ typing-extensions==4.15.0
     #   huggingface-hub
     #   langchain-core
     #   langchain-protocol
+    #   litellm
     #   mypy-boto3-bedrock-runtime
     #   openai
     #   posthog
@@ -467,8 +470,9 @@ typing-inspection==0.4.2
     #   pydantic-settings
 tzdata==2026.2 ; sys_platform == 'emscripten' or sys_platform == 'win32'
     # via pandas
-urllib3==2.7.0
+urllib3==2.8.0
     # via
+    #   botocore
     #   qdrant-client
     #   requests
     #   sentry-sdk
@@ -486,7 +490,7 @@ uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'c
     # via uvicorn
 voyage-embedders-haystack==1.10.0
     # via fastpilot
-voyageai==0.4.1
+voyageai==0.6.0
     # via
     #   fastpilot
     #   voyage-embedders-haystack
@@ -506,7 +510,7 @@ win32-setctime==1.2.0 ; sys_platform == 'win32'
     # via loguru
 xxhash==3.7.0
     # via langsmith
-yarl==1.24.2
+yarl==1.25.1
     # via aiohttp
 zipp==4.1.0
     # via importlib-metadata
