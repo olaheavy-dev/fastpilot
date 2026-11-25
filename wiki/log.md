@@ -5,6 +5,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Uptime check moves to FastPilot
+
+- **New workflow `.github/workflows/uptime.yml`** ("Uptime"): every 15 minutes it checks `https://fastpilot.olaheavy.dev` for HTTP 200 with a non-empty page. It has a 2-minute timeout and read-only permissions, and a manual run accepts another domain.
+- **Why here:** founder's choice, "Move it to fastpilot (Recommended)". In the private infra repository, GitHub bills each run as at least one minute, so the check would use about 2,900 of the organisation's 3,000 shared private minutes a month. Public repositories run free. Infra's "Staging uptime" is removed in the infra 22e PR.
+- **Failure emails** go to whoever last changed the `cron` line or re-enabled the workflow (GitHub docs), so keep that the founder's account. GitHub also pauses scheduled workflows in a public repository after 60 days without activity.
+- New page [[uptime-check]]; [[index]] updated.
+
 ## 2026-11-25 — Dependency alerts cleared
 
 - **Dependabot alerts turned on** (they were off): 138 open alerts (8 critical, 83 high, 44 moderate, 3 low), all in indirect packages in `uv.lock`. Each one ships in the backend image, the frontend image or both: for example GitPython only in the frontend (through Streamlit), litellm only in the backend (through Opik), and Pillow in both.

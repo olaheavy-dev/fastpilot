@@ -1,0 +1,47 @@
+# Public uptime check for the live site (founder, 25 Nov 2026: "Move it to fastpilot
+# (Recommended)"). It runs here, not in the private infra repository, because Actions
+# minutes are free for public repositories; in infra a 15-minute check used about 2,900 of
+# the organisation's 3,000 shared private minutes a month. Replaces infra's "Staging uptime".
+#
+# Failure emails go to the person who last changed the `cron` line, or who last re-enabled
+# the workflow: keep that the founder's account. See wiki/uptime-check.md.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: Public domain to check.
+        required: true
+        default: fastpilot.olaheavy.dev
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: true
+
+jobs:
+  public-uptime:
+    name: Public uptime
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      DOMAIN: ${{ github.event.inputs.domain || 'fastpilot.olaheavy.dev' }}
+    steps:
+      - name: Check public HTTPS
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -o /tmp/home.html -w '%{http_code}' --connect-timeout 10 --max-time 20 "https://${DOMAIN}")"
+          if [ "$status" != "200" ]; then
+            echo "https://${DOMAIN} returned HTTP $status, expected 200." >&2
+            exit 1
+          fi
+          if [ ! -s /tmp/home.html ]; then
+            echo "https://${DOMAIN} returned an empty page." >&2
+            exit 1
+          fi
+          echo "ok: https://${DOMAIN} returned HTTP 200"
