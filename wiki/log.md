@@ -5,6 +5,14 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Uptime check moves to FastPilot
+
+- **New workflow `.github/workflows/uptime.yml`** ("Uptime"): every 15 minutes it checks `https://fastpilot.olaheavy.dev` for HTTP 200 with a non-empty page. It has a 2-minute timeout and read-only permissions, and a manual run accepts another domain.
+- **Why here:** founder's choice, "Move it to fastpilot (Recommended)". In the private infra repository, GitHub bills each run as at least one minute, so the check would use about 2,900 of the organisation's 3,000 shared private minutes a month. Public repositories run free. Infra's "Staging uptime" is removed in the infra 22e PR.
+- **Failure emails** go to the account that first adds the workflow to `main`, then whoever changes its `cron` line or re-enables it (GitHub docs), so the founder merges this PR. GitHub also pauses scheduled workflows in a public repository after 60 days without activity.
+- **Fresh review before push** (all fixed): the schedule runs off the hour (`7,22,37,52`; GitHub delays or drops runs at the start of each hour); a manual run can no longer cancel a scheduled one; the check retries twice and bypasses Cloudflare's cache; the email rule now includes "the account that first created the workflow", so the founder merges this PR.
+- New page [[uptime-check]]; [[index]] updated.
+
 ## 2026-11-25 — UI fixes from the upgrade review (#44, #45, #46)
 
 - **#46:** a switched-off sidebar toggle was a faint tint (20% at rest, 15% on hover) that nearly vanished, most of all in light mode. Its track now uses a new token, `--fp-toggle-off` (`#878079` light, `#6B7489` dark). Each clears 3:1 against the sidebar and against the knob (WCAG 1.4.11): light 3.89:1 and 3.89:1, dark 3.59:1 and 3.86:1. Disabled toggles keep Streamlit's look. The new test `test_toggle_off_track_is_visible` measures the resting state in both themes, track and knob; it fails on the old CSS and passes on the new.
