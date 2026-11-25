@@ -2,7 +2,7 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 14:40 UTC (uptime check moves to FastPilot)
+**Updated:** 25 Nov 2026, 13:19 UTC (uptime check moves to FastPilot)
 
 ## Start of the next session
 
@@ -14,7 +14,7 @@ The current state, the planned work and the open to-dos. Keep this file current:
 ## Open pull requests
 
 - **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
-- **Uptime check** (`.github/workflows/uptime.yml`, [`wiki/uptime-check.md`](../../wiki/uptime-check.md)): every 15 minutes from this public repository, free. Waiting for Codex. Your choice, 25 Nov: "Move it to fastpilot (Recommended)", because in the private infra repository it used about 2,900 of the 3,000 shared Actions minutes a month.
+- **Uptime check** (`.github/workflows/uptime.yml`, [`wiki/uptime-check.md`](../../wiki/uptime-check.md)): every 15 minutes from this public repository, free. Waiting for Codex; **the founder merges it**, so failure emails go to the founder's account (GitHub sends them to the account that adds the workflow). Your choice, 25 Nov: "Move it to fastpilot (Recommended)", because in the private infra repository it used about 2,900 of the 3,000 shared Actions minutes a month.
 - **Dependency alerts**: lock upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
 
 ## Where we are

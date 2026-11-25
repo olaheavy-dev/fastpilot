@@ -3,13 +3,15 @@
 # minutes are free for public repositories; in infra a 15-minute check used about 2,900 of
 # the organisation's 3,000 shared private minutes a month. Replaces infra's "Staging uptime".
 #
-# Failure emails go to the person who last changed the `cron` line, or who last re-enabled
-# the workflow: keep that the founder's account. See wiki/uptime-check.md.
+# Failure emails go to the account that first added this file to main, then to whoever last
+# changes the `cron` line or re-enables the workflow: keep that the founder's account.
+# See wiki/uptime-check.md.
 name: Uptime
 
 on:
   schedule:
-    - cron: "*/15 * * * *"
+    # Off the hour: GitHub delays, and may drop, scheduled runs at the start of each hour.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
     inputs:
       domain:
@@ -17,12 +19,13 @@ on:
         required: true
         default: fastpilot.olaheavy.dev
 
-permissions:
-  contents: read
+permissions: {}
 
+# One group per trigger, never cancelled: a manual check of another host must not cancel a
+# scheduled production check (runs take seconds, so they cannot pile up).
 concurrency:
-  group: uptime
-  cancel-in-progress: true
+  group: uptime-${{ github.event_name }}
+  cancel-in-progress: false
 
 jobs:
   public-uptime:
@@ -30,12 +33,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
-      DOMAIN: ${{ github.event.inputs.domain || 'fastpilot.olaheavy.dev' }}
+      DOMAIN: ${{ inputs.domain || 'fastpilot.olaheavy.dev' }}
     steps:
       - name: Check public HTTPS
         run: |
           set -euo pipefail
-          status="$(curl -sS -o /tmp/home.html -w '%{http_code}' --connect-timeout 10 --max-time 20 "https://${DOMAIN}")"
+          if [[ ! "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "Domain must be a bare host name, for example fastpilot.olaheavy.dev (got: $DOMAIN)." >&2
+            exit 1
+          fi
+          # Two retries so one network blip does not send a failure email; no -L, so a
+          # redirect fails. no-cache keeps Cloudflare from answering for a down origin.
+          status="$(curl -sS -o /tmp/home.html -w '%{http_code}' --connect-timeout 10 --max-time 20 \
+            --retry 2 --retry-delay 5 --retry-all-errors \
+            -H 'Cache-Control: no-cache' -A 'fastpilot-uptime' "https://${DOMAIN}")"
           if [ "$status" != "200" ]; then
             echo "https://${DOMAIN} returned HTTP $status, expected 200." >&2
             exit 1

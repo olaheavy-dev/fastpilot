@@ -10,6 +10,7 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 - **New workflow `.github/workflows/uptime.yml`** ("Uptime"): every 15 minutes it checks `https://fastpilot.olaheavy.dev` for HTTP 200 with a non-empty page. It has a 2-minute timeout and read-only permissions, and a manual run accepts another domain.
 - **Why here:** founder's choice, "Move it to fastpilot (Recommended)". In the private infra repository, GitHub bills each run as at least one minute, so the check would use about 2,900 of the organisation's 3,000 shared private minutes a month. Public repositories run free. Infra's "Staging uptime" is removed in the infra 22e PR.
 - **Failure emails** go to whoever last changed the `cron` line or re-enabled the workflow (GitHub docs), so keep that the founder's account. GitHub also pauses scheduled workflows in a public repository after 60 days without activity.
+- **Fresh review before push** (all fixed): the schedule runs off the hour (`7,22,37,52`; GitHub delays or drops runs at the start of each hour); a manual run can no longer cancel a scheduled one; the check retries twice and bypasses Cloudflare's cache; the email rule now includes "the account that first created the workflow", so the founder merges this PR.
 - New page [[uptime-check]]; [[index]] updated.
 
 ## 2026-11-25 — Dependency alerts cleared

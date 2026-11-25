@@ -1,6 +1,6 @@
 # Uptime check
 
-A GitHub Actions workflow, `.github/workflows/uptime.yml` ("Uptime"), visits `https://fastpilot.olaheavy.dev` every 15 minutes. It fails when the page doesn't return HTTP 200 with a non-empty body. GitHub then emails the person who owns the schedule (see below).
+A GitHub Actions workflow, `.github/workflows/uptime.yml` ("Uptime"), visits `https://fastpilot.olaheavy.dev` every 15 minutes, at :07, :22, :37 and :52 past the hour. It tries up to three times, 5 seconds apart, and sends `Cache-Control: no-cache` with the user agent `fastpilot-uptime`, so the answer comes from the server, not Cloudflare's cache, and the requests can be found in Caddy's logs. It fails when the page doesn't return HTTP 200 with a non-empty body. GitHub then emails the person who owns the schedule (see below).
 
 ## Why it runs in this repository
 
@@ -17,9 +17,19 @@ Founder, 25 Nov 2026: "Move it to fastpilot (Recommended)".
 
 ## Who gets the failure emails
 
-GitHub sends a scheduled workflow's failure emails to the person who last changed its `cron` line. If the workflow was disabled and re-enabled, they go to the person who re-enabled it ([GitHub: notifications for workflow runs](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs)).
+GitHub sends a scheduled workflow's failure emails to ([GitHub: notifications for workflow runs](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs)):
 
-**Keep that the founder's account:** don't let a bot or another person's account edit the `cron` line or re-enable the workflow.
+1. the account that first created the workflow, here the one that merged the file to `main`;
+2. then whoever later changes its `cron` line;
+3. or whoever re-enables it after it was disabled.
+
+That person must also have Actions notifications turned on in their own GitHub settings.
+
+**Keep that the founder's account:** the founder merges the pull request that adds this file. Don't let a bot or another person's account edit the `cron` line or re-enable the workflow. To check who owns the schedule, look at the `actor` of the latest scheduled run:
+
+```bash
+gh api 'repos/olaheavy-dev/fastpilot/actions/runs?event=schedule&per_page=1' --jq '.workflow_runs[0].actor.login'
+```
 
 ## Running it by hand
 
@@ -33,5 +43,5 @@ The second form is also how infra checks that GitHub runners are not challenged 
 ## Cost and limits
 
 - **Cost:** free, because the repository is public. Each run takes a few seconds and has a 2-minute timeout.
-- **Delays:** GitHub may delay or skip scheduled runs when it is busy, so the real gap between checks can be longer than 15 minutes.
+- **Delays:** GitHub may delay or skip scheduled runs when it is busy, most of all at the start of each hour, which is why the check runs off the hour. The real gap between checks can still be longer than 15 minutes; the old infra check, on the hour, ran about every 2 hours in August 2026.
 - **Pausing:** GitHub disables scheduled workflows in a public repository after 60 days with no repository activity. If that happens, re-enable the workflow from the founder's account.
