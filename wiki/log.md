@@ -5,6 +5,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-25 — Weekly Dependabot updates
+
+- **#47 merged:** all 138 alerts cleared on `main` (deploy after the 48-hour watch).
+- **`.github/dependabot.yml`:** weekly version updates for `uv` and `github-actions` on Mondays at 06:00 London time. It has a 7-day cooldown, groups patch releases, and holds `qdrant-client` below 1.19 to match the server. The options were checked against GitHub's options reference (`cooldown` supports `uv` and `github-actions`).
+- **Known step:** Dependabot changes only `uv.lock`, so each `uv` PR fails CI's constraints check until `scripts/export_constraints.sh` is run on its branch.
+- New page [[dependency-updates]]; [[index]] updated.
+
 ## 2026-11-25 — Dependency alerts cleared
 
 - **Dependabot alerts turned on** (they were off): 138 open alerts (8 critical, 83 high, 44 moderate, 3 low), all in indirect packages in `uv.lock`. Each one ships in the backend image, the frontend image or both: for example GitPython only in the frontend (through Streamlit), litellm only in the backend (through Opik), and Pillow in both.

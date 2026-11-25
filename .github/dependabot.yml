@@ -1,0 +1,41 @@
+# Weekly version updates (founder, 25 Nov 2026: "Turn on Dependabot first (Recommended)",
+# then "Yes, after the alert fix (Recommended)"). Security alerts are separate and always on.
+# Options: https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+#
+# uv PRs change only uv.lock. CI also checks app/ and frontend/constraints.txt against the
+# lock, so each uv PR fails CI until `scripts/export_constraints.sh` is run on its branch
+# and the result pushed (see wiki/dependency-updates.md).
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    # Wait 7 days after a release before proposing it (house rule: 7-day cooldown).
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      # Patch releases together in one PR; minor and major bumps stay one PR each, because
+      # a minor bump of a 0.x package counts as major under the house rules.
+      patches:
+        update-types: ["patch"]
+    ignore:
+      # The client stays on the production Qdrant server's minor version (v1.18.0 in
+      # deploy/docker-compose.prod.yml); move both together.
+      - dependency-name: "qdrant-client"
+        versions: [">=1.19"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
