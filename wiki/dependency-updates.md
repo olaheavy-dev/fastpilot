@@ -36,6 +36,15 @@ Work on **one pull request at a time**, the one you are about to merge:
 
 On the first uv pull request, also check the `uv.lock` diff for header or format changes: Dependabot's own uv version may differ from CI's.
 
+## Handling a `docker-compose` pull request
+
+These update the pinned Qdrant and Redis images in `deploy/docker-compose.prod.yml`. Only patch releases arrive: Qdrant `v1.18.x`, and Redis digest refreshes of `8.4`. **CI never starts these images**, so a green check proves nothing about them.
+
+1. Check that the pull request changes both the tag and the `@sha256` digest.
+2. Start the new image locally (`deploy/docker-compose.local.yml`) and run the integration tests against it (`-m integration`, see [[testing-strategy]]). For Redis, these cover the semantic cache's search index. For Qdrant, also run a search against a restored snapshot.
+3. Deploy with the infra helper at a quiet time. A Redis image change restarts Redis with no persistence: rate-limit counters, chat memory and the answer cache start empty (accepted by decision; they rebuild).
+4. After deploy, check that `/health` shows the cache available and the index's point count unchanged.
+
 ### Extra checks for search packages
 
 These packages change how documents are found. A version change can quietly make search worse without breaking any test.

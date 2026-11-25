@@ -50,7 +50,9 @@ updates:
     open-pull-requests-limit: 5
 
   # The pinned Qdrant and Redis images in production (the infra Phase 22 plan relies on this
-  # entry). Dependabot reads any docker-compose*.yml in the folder, so docker-compose.prod.yml.
+  # entry). Dependabot reads both Compose files in /deploy; only Qdrant and Redis carry
+  # versions (the app images use a deploy-time tag, the local file has local builds).
+  # CI never runs these images, so a green check proves nothing: see wiki/dependency-updates.md.
   - package-ecosystem: "docker-compose"
     directory: "/deploy"
     schedule:
@@ -65,4 +67,9 @@ updates:
       # Server and client move together (qdrant-client is held below 1.19 above): patch
       # releases only, so v1.18.x.
       - dependency-name: "qdrant/qdrant"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # Redis holds the RediSearch semantic cache, rate limits and chat memory, with a 48 MB
+      # noeviction cap. Digest refreshes of 8.4 (its patch releases) still arrive; a minor or
+      # major move is a planned change.
+      - dependency-name: "redis"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
