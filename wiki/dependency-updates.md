@@ -43,7 +43,7 @@ These update the pinned Qdrant and Redis images in `deploy/docker-compose.prod.y
 **Rule (founder, 25 Nov 2026: "No, review first (Recommended)"):** image pull requests never merge on green checks alone, even though they are small updates. They merge only after steps 1 and 2 below pass and the result is written in the pull request.
 
 1. Check that the pull request changes both the tag and the `@sha256` digest.
-2. Start the new image locally (`deploy/docker-compose.local.yml`) and run the integration tests against it (`-m integration`, see [[testing-strategy]]). For Redis, these cover the semantic cache's search index. For Qdrant, also run a search against a restored snapshot.
+2. **Redis:** start the new image by itself on the test port and point the integration tests at it. The local Compose stack keeps Redis on an internal network with no published port, so the tests would not reach it there. Run `docker run --rm -d --name redis-candidate -p 6380:6379 <image>@<digest>`, then `REDIS_TEST_URL=redis://localhost:6380 uv run --frozen pytest -m integration tests/test_integration.py`, then `docker stop redis-candidate`. These tests cover the semantic cache's search index (RediSearch, built into Redis 8). **Qdrant:** start the new image with the local stack (`deploy/docker-compose.local.yml`) and restore the production snapshot into it, then run a search.
 3. Deploy with the infra helper at a quiet time. A Redis image change restarts Redis with no persistence: rate-limit counters, chat memory and the answer cache start empty (accepted by decision; they rebuild).
 4. After deploy, check that `/health` shows the cache available and the index's point count unchanged.
 
