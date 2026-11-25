@@ -350,8 +350,9 @@ def _contrast(rgb_a: str, rgb_b: str) -> float:
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
 def test_toggle_off_track_is_visible(ui_server, browser, theme):
-    """A switched-off sidebar toggle must stand out from the sidebar (WCAG 1.4.11, 3:1) — #46.
-    Streamlit's default off track is a 15% tint that nearly vanishes in light mode."""
+    """A switched-off sidebar toggle, at rest, must stand out from the sidebar, and its knob from
+    the track (WCAG 1.4.11, 3:1 each) — #46. Streamlit's default off track is a faint tint
+    (20% at rest, 15% on hover) that nearly vanishes in light mode."""
     from playwright.sync_api import expect
 
     page = _open(browser, 1280, theme)
@@ -360,6 +361,7 @@ def test_toggle_off_track_is_visible(ui_server, browser, theme):
     page.get_by_text("Semantic Cache").first.click()
     switch = page.get_by_role("switch", name="Semantic Cache")
     expect(switch).not_to_be_checked(timeout=10_000)
+    page.mouse.move(900, 900)  # off the sidebar: measure the resting state, not hover
     page.wait_for_timeout(1000)  # the track's colour animates; measure the settled "off" state
     colours = page.evaluate(
         """() => {
@@ -371,12 +373,14 @@ def test_toggle_off_track_is_visible(ui_server, browser, theme):
             el = el.parentElement;
             bg = getComputedStyle(el).backgroundColor;
           }
-          return [getComputedStyle(track).backgroundColor, bg];
+          const knob = getComputedStyle(track.firstElementChild).backgroundColor;
+          return [getComputedStyle(track).backgroundColor, bg, knob];
         }"""
     )
-    track, sidebar = colours
+    track, sidebar, knob = colours
     assert not track.startswith("rgba") or track.endswith(", 1)"), f"off track is translucent: {track}"
     ratio = _contrast(track, sidebar)
     assert ratio >= 3, f"off track {track} on sidebar {sidebar}: {ratio:.2f}:1 < 3:1"
+    knob_ratio = _contrast(knob, track)
+    assert knob_ratio >= 3, f"knob {knob} on off track {track}: {knob_ratio:.2f}:1 < 3:1"
     page.close()
-

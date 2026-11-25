@@ -2,20 +2,19 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 25 Nov 2026, 15:30 UTC (dependency alerts)
+**Updated:** 25 Nov 2026, 14:10 UTC (UI fixes)
 
 ## Start of the next session
 
 1. **22d, 24-hour watch, about 21:20 UTC on 25 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, backend and runner logs, rate-limit refusals, Gemini usage against the $10 cap and Voyage against the $7.50 alert. Post a short summary. The 48-hour check is at the same time on 26 Nov; then the founder decides whether Agent and Playground stay on.
 2. **Infra #114** (go-live records, architecture pages, the `sha-7517b7a` deploy log): Codex clean, no open threads; the founder merges it.
-3. **Deploy the dependency-alerts PR after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
+3. **Deploy #47 (merged) and the UI fixes after the watch** (26 Nov, after the 48-hour summary): deploy, check that the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source), and re-run the public checks in both themes. Then add the weekly `.github/dependabot.yml` (`uv` and `github-actions`; one file shared with the refresh plan's Part 3).
 4. Then **22e** (uptime check to the new site, infra #102; App Registry), then Part 0 of the refresh (#29).
 
 ## Open pull requests
 
 - **infra #114**: Phase 22c records and architecture pages. Waiting for the founder's merge.
 - **UI fixes #44, #45, #46**: visible switched-off toggles (both themes), the mobile column selector, `width="stretch"`. Waiting for Codex; deploys with #47 after the watch.
-- **Dependency alerts**: lock upgrade clearing all 138 Dependabot alerts. Waiting for Codex; deploy after the watch.
 
 ## Where we are
 

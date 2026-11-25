@@ -27,6 +27,8 @@ opt-in via markers (`addopts = -m 'not integration and not live and not visual'`
 
 `--strict-markers` is on — an unregistered marker is an error.
 
+**CI does not run `visual`.** Run `uv run pytest -m visual` by hand on any Streamlit upgrade (a Dependabot pull request or otherwise) and on any change to `frontend/styles.py`. Some of these tests lean on Streamlit's internal page structure, for example `test_toggle_off_track_is_visible` (#46) and `test_playground_edit_reaches_run`, so an upgrade can break them without any default test failing.
+
 ## Hermeticity (autouse fixtures in `tests/conftest.py`)
 Three autouse fixtures make every test safe and offline by default:
 - **`_no_network`** — monkeypatches `socket.connect`/`connect_ex` to raise, so no test can

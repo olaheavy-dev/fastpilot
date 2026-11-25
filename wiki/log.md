@@ -7,7 +7,8 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ## 2026-11-25 — UI fixes from the upgrade review (#44, #45, #46)
 
-- **#46:** a switched-off sidebar toggle was a 15% tint that nearly vanished, most of all in light mode. Its track now uses `--fp-muted`: 5.16:1 on the light sidebar and 5.51:1 on the dark one (WCAG 1.4.11 asks for 3:1). The new test `test_toggle_off_track_is_visible` measures it in both themes; it fails on the old CSS and passes on the new.
+- **#46:** a switched-off sidebar toggle was a faint tint (20% at rest, 15% on hover) that nearly vanished, most of all in light mode. Its track now uses a new token, `--fp-toggle-off` (`#878079` light, `#6B7489` dark). Each clears 3:1 against the sidebar and against the knob (WCAG 1.4.11): light 3.89:1 and 3.89:1, dark 3.59:1 and 3.86:1. Disabled toggles keep Streamlit's look. The new test `test_toggle_off_track_is_visible` measures the resting state in both themes, track and knob; it fails on the old CSS and passes on the new.
+- **Fresh review** (1 P1, 2 P2, 5 P3, all fixed): a first attempt used `--fp-muted`, which left the dark knob at 2.51:1, and the test measured the hover state.
 - **#44:** the mobile rule now targets `stColumn` (Streamlit's current test id). At 390 px nothing changes visibly, because Streamlit already stacks the chips; the rule is a guard.
 - **#45:** `use_container_width=True` → `width="stretch"` (four buttons), the replacement Streamlit 1.67 documents.
 
