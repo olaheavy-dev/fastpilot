@@ -24,6 +24,9 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
   and system disagree; fixed by the same change.
 - Founder, 24 Nov 2026: "Stay on Streamlit (Recommended)" (no React rewrite); recorded in
   `docs/production-decisions.md`.
+- **Deployed** #40 as `sha-7517b7a` (founder approved; `deploy-fastpilot.sh --stage containers`). Live after:
+  200, `/health` healthy with the runner, 0 proxy-key warnings, no Theme control; the Sources title and the
+  "· N sources" caption use the theme's text colour in light and dark, at rest and on hover.
 
 ## 2026-11-24 — Live: fastpilot.olaheavy.dev (Phase 22c)
 
