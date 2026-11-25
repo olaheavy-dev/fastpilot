@@ -70,7 +70,7 @@ def _sidebar() -> None:
 
     with st.sidebar:
         st.markdown("### ⚡ FastPilot")
-        st.button("＋ New Chat", use_container_width=True, on_click=_new_chat)
+        st.button("＋ New Chat", width="stretch", on_click=_new_chat)
         st.divider()
         st.radio(
             "Mode",
@@ -124,9 +124,9 @@ def _feedback_dialog(idx: int, msg: dict) -> None:
     )
     comment = st.text_area("Optional — tell us more", key=f"comment_{idx}")
     cancel, submit = st.columns(2)
-    if cancel.button("Cancel", use_container_width=True, key=f"cancel_{idx}"):
+    if cancel.button("Cancel", width="stretch", key=f"cancel_{idx}"):
         st.rerun()
-    if submit.button("Submit", type="primary", use_container_width=True, key=f"submit_{idx}"):
+    if submit.button("Submit", type="primary", width="stretch", key=f"submit_{idx}"):
         meta = msg.get("metadata", {})
         api_client.send_feedback(
             st.session_state.session_id,
@@ -304,7 +304,7 @@ def _welcome() -> None:
     suggestions = [(label, q) for label, q in SUGGESTIONS if q is not None or feature_flags.agent_enabled()]
     for i, (label, query) in enumerate(suggestions):
         with cols[i % 2]:
-            if st.button(label, key=f"chip_{i}", use_container_width=True):
+            if st.button(label, key=f"chip_{i}", width="stretch"):
                 if query is None:  # agent teaser → Agent mode, pre-filled
                     st.session_state.pending_mode = MODES[1]
                     st.session_state.agent_pending = agent_view.SAMPLE_TASK
