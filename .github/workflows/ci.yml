@@ -13,7 +13,7 @@ jobs:
   lint-and-unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -42,7 +42,7 @@ jobs:
     permissions:
       contents: write   # required to push to the repo's .wiki.git
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Configure git auth for the wiki push
         run: |
           git config --global user.name "github-actions[bot]"
