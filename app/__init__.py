@@ -23,3 +23,4 @@ __version__ = "0.0.0"
 os.environ["HAYSTACK_TELEMETRY_ENABLED"] = "False"
 os.environ["OPIK_SENTRY_ENABLE"] = "false"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+

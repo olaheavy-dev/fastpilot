@@ -80,4 +80,4 @@ None.
 
 ## Open issues worth knowing
 
-#23 (compose ports; handled by the production file), #29 (refresh), #30 (MCP), #31 (model follow-ups), #62 (the backend pings Opik's is-alive endpoint every few seconds), #65 (self-host fonts and Monaco, in review), #69 (Monaco 0.36.1 and the unmaintained streamlit-monaco), infra #118 (registry links use the old repository name), infra #122 (infra CI action pins, sops in CI), infra #111 (the index-restore helper fails on a brief `yellow` status).
+#23 (compose ports; handled by the production file), #29 (refresh), #30 (MCP), #31 (model follow-ups), #69 (Monaco 0.36.1 and the unmaintained streamlit-monaco), infra #118 (registry links use the old repository name), infra #122 (infra CI action pins, sops in CI), infra #111 (the index-restore helper fails on a brief `yellow` status).
