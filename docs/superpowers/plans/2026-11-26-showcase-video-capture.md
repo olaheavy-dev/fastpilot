@@ -25,7 +25,7 @@
 1. **A scene in `script.md` with no matching mark in the recording** (or the reverse): the manifest must fail, not silently drop the scene. Pinned in Task 3 (`test_manifest_rejects_missing_scene`).
 2. **The live answer streams slower than the line is long:** the walkthrough must wait for the answer to finish before holding, not cut it off. Pinned in Task 2 (`hold_for` waits on a completion selector first; `test_hold_waits_for_done_then_line`).
 3. **`durations.json` older than `script.md`:** recording to stale timings. Pinned in Task 2 (`test_refuses_stale_durations`).
-4. **An explainer scene accidentally recorded as footage:** part B would get the wrong kind. Pinned in Task 3 (`test_explainer_scenes_have_no_footage`).
+4. **An explainer scene given a footage window:** part B would cut footage where it should draw a scene. Explainers are marked in the log (the mark ends the previous footage window) but get `start`/`end` null. Pinned in Task 3 (`test_explainer_scenes_have_no_footage`).
 5. **The HTML source comment read aloud:** Pinned in Task 1 (`test_scenes_strip_source_comments`).
 
 ---
@@ -77,9 +77,9 @@
    "scenes": [{"name": "01-open", "kind": "footage", "start": 0.0, "end": 6.4, "audio": "01-open.wav", "seconds": 6.1, "text": "…"},
               {"name": "04-retrieval", "kind": "explainer", "start": null, "end": null, "audio": "04-retrieval.wav", "seconds": 9.8, "text": "…"}]}
   ```
-  Order is the script's. `start`/`end` are footage times from the log; `end` is the next mark's time.
+  Order is the script's. `start`/`end` are footage times from the log; `end` is the next mark's time. The walkthrough writes a final `scene end` mark after the last scene, so the last footage scene has an end.
 
-- [ ] **Step 1: Write the failing tests:** `test_manifest_orders_by_script`; `test_manifest_rejects_missing_scene` (a footage scene with no mark → `ValueError` naming it); `test_explainer_scenes_have_no_footage` (an explainer with a mark → `ValueError`); `test_manifest_marks_ai_narration` (`"narration" == "ai-generated"`).
+- [ ] **Step 1: Write the failing tests:** `test_manifest_orders_by_script`; `test_manifest_rejects_missing_scene` (a scene with no mark → `ValueError` naming it); `test_manifest_rejects_unknown_mark` (a mark not in the script → `ValueError` naming it); `test_manifest_needs_an_end_mark`; `test_explainer_scenes_have_no_footage` (an explainer is marked but gets `start` and `end` null); `test_manifest_marks_ai_narration` (`"narration" == "ai-generated"`).
 - [ ] **Step 2: Run:** FAIL. **Step 3: Implement** `build_manifest` and `python -m tools.demo.manifest --log … --video …`. **Step 4: Run:** PASS. **Commit:** `Demo tools: manifest for the Remotion edit (#20)`.
 
 ### Task 4: Docs, README GIF step, full check
