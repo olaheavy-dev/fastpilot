@@ -23,3 +23,9 @@ __version__ = "0.0.0"
 os.environ["HAYSTACK_TELEMETRY_ENABLED"] = "False"
 os.environ["OPIK_SENTRY_ENABLE"] = "false"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+
+# Opik's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not; with two
+# clients (ours and @track's) that was about 15,850 pings a day (#62). Every 5 minutes still
+# notices an Opik outage and resends failed traces after it. Defaulted, not forced: an env file
+# may choose another interval.
+os.environ.setdefault("OPIK_CONNECTION_MONITOR_PING_INTERVAL", "300")
