@@ -175,9 +175,58 @@ def test_installed_package_not_modified():
 # --- The frontend image copies only what it runs (#70) -----------------------------------------
 
 
+def _segments_match(pattern: list[str], path: list[str]) -> bool:
+    import fnmatch
+
+    if not pattern:
+        return not path
+    if pattern[0] == "**":
+        return any(_segments_match(pattern[1:], path[n:]) for n in range(len(path) + 1))
+    return bool(path) and fnmatch.fnmatchcase(path[0], pattern[0]) and _segments_match(pattern[1:], path[1:])
+
+
+def _ignored(path: str, patterns: list[str]) -> bool:
+    """Docker's rule for our patterns: `*` stays inside one path segment, `**` spans any number,
+    a pattern that matches a folder ignores everything under it, the last matching line wins,
+    and `!` re-includes."""
+    parts = path.split("/")
+    result = False
+    for raw in patterns:
+        negate, pattern = raw.startswith("!"), raw.lstrip("!")
+        segs = pattern.split("/")
+        if any(_segments_match(segs, parts[:n]) for n in range(1, len(parts) + 1)):
+            result = not negate
+    return result
+
+
 def test_frontend_dockerignore_keeps_notes_out_and_app_in():
-    ignore = (FRONTEND / ".dockerignore").read_text().split()
-    for pattern in ("**/__pycache__", "**/.DS_Store", "*.md", "railway.toml"):
-        assert pattern in ignore, pattern
-    # What the app needs at runtime must never be ignored.
-    assert not {".streamlit", "static", "*.py", "*.woff2"} & set(ignore)
+    patterns = [
+        line.strip()
+        for line in (FRONTEND / ".dockerignore").read_text().splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    for path in ("__pycache__/app.cpython-312.pyc", "static/__pycache__/x.pyc", ".DS_Store",
+                 "static/fonts/.DS_Store", "WATCHTOWER_PROOF.md", "railway.toml"):
+        assert _ignored(path, patterns), f"{path} should stay out of the image"
+    # Everything the image runs, checked as real files, so a broad pattern (`*`, `**/*.py`,
+    # `static/**`) can't slip through.
+    needed = [
+        p.relative_to(FRONTEND).as_posix()
+        for p in sorted(FRONTEND.rglob("*"))
+        if p.is_file()
+        and "__pycache__" not in p.parts
+        and (p.suffix in {".py", ".txt", ".toml", ".woff2"})
+        and p.name != "railway.toml"
+    ]
+    assert "app.py" in needed and ".streamlit/config.toml" in needed and "monaco_patch.py" in needed
+    kept_out = [p for p in needed if _ignored(p, patterns)]
+    assert kept_out == []
+
+
+def test_dockerignore_check_catches_broad_patterns():
+    """The checker itself: a catch-all or a font wildcard must count as ignoring app files."""
+    assert _ignored("app.py", ["*"])
+    assert _ignored("static/fonts/x.woff2", ["static"])
+    assert _ignored("static/fonts/x.woff2", ["**/*.woff2"])
+    assert not _ignored("static/fonts/README.md", ["*.md"])  # top level only, as in Docker
+    assert not _ignored("app.py", ["*", "!*.py"])
