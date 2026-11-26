@@ -34,4 +34,4 @@ Your code runs in a separate runner with no network and no keys. <!-- source: wi
 Runs use separate users, so two visitors can't see each other's files. Memory and processes are limited, and after every run everything it left behind is removed. <!-- source: wiki/component-architecture.md, two slot users, 256 MB per process, clean-up after every run -->
 
 ## 08-close (footage)
-Ask it, watch it, practise. FastPilot is live at fastpilot dot olaheavy dot dev, and the code is on GitHub. <!-- caption: Ask it, watch it, practise. FastPilot is live at fastpilot.olaheavy.dev, and the code is on GitHub. -->
+Ask it, watch it, practise.

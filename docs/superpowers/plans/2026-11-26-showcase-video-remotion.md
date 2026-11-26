@@ -46,13 +46,13 @@
 
 **Interfaces:**
 - Produces:
-  - `type Scene = { name: string; kind: "footage" | "explainer"; start: number | null; end: number | null; audio: string; seconds: number; text: string }`
+  - `type Scene = { name: string; kind: "footage" | "explainer"; start: number | null; end: number | null; done: number | null; audio: string; seconds: number; text: string; caption: string }` (`done`: when the page showed the scene finished, for speeding up a long wait after the line ends, labelled, as Foresight did; `caption`: what to show, which can differ from the spoken `text`, for example a web address. Both added after the part A review, 26 Nov 2026)
   - `type Manifest = { version: 1; narration: "ai-generated"; recorded: string; url: string; video: string; scenes: Scene[] }`
   - `loadManifest(json: unknown, files: Set<string>): Manifest` (throws `Error` naming the scene or field)
   - `readTokens(css: string): { paper: string; ink: string; lilac: string; teal: string; tealText: string }` (from `:root` only)
   - `captionChunks(text: string, seconds: number, maxChars = 42): { text: string; from: number; to: number }[]`
 
-- [ ] **Step 1: Write the failing tests:** `loadManifest` rejects version 2, a footage scene with `start: null`, and a missing audio file (message names the scene); `readTokens` returns `#faf8f5` for paper from a CSS sample that also has a dark block; `captionChunks` splits a 120-character line into chunks of at most 42 characters, covers `0..seconds` with no gaps, and never contains `–` or `—`.
+- [ ] **Step 1: Write the failing tests:** `loadManifest` rejects version 2, a footage scene with `start: null`, and a missing audio file (message names the scene); `readTokens` returns `#faf8f5` for paper from a CSS sample that also has a dark block; captions come from `scene.caption`, never `scene.text`; `captionChunks` splits a 120-character line into chunks of at most 42 characters, covers `0..seconds` with no gaps, and never contains `–` or `—`.
 - [ ] **Step 2:** `pnpm --filter explainers test` FAILS. **Step 3:** Implement. **Step 4:** PASS. **Step 5:** Commit `tools/explainers: manifest, tokens and captions (#135)`.
 
 ### Task 3: The two explainer scenes

@@ -9,7 +9,7 @@ The method comes from Foresight's demo (its `docs/demo-video.md`), which made a 
 
 ## The rules
 
-- **Never commit a voice recording or rendered audio.** A short sample is enough for anyone to clone the voice. `tools/demo/voice/` and `tools/demo/out/` are git-ignored.
+- **Never commit a voice recording or the narration's WAV files.** A short sample is enough for anyone to clone the voice. `tools/demo/voice/`, `tools/demo/out/` and every `.wav` under `tools/demo/` are git-ignored. Only the finished, labelled MP4 is committed (step 5).
 - **Every frame of the final video says the narration is AI-generated.** `manifest.json` carries `"narration": "ai-generated"`, and part B draws the label.
 - **Every number in the narration has a source.** `script.md` cites it in a `<!-- source: … -->` comment, which is never read aloud.
 - **Each live take costs a few cents** (one Chat question with the semantic cache switched off, one Agent run, one Playground run) and leaves Opik traces. The question and the Agent task start with "Demo:", so the traces are easy to spot.
@@ -55,7 +55,7 @@ tools/demo/.venv/bin/python -m tools.demo.narrate --voice tools/demo/voice/refer
 afplay tools/demo/out/audio/01-open.wav
 ```
 
-It writes one WAV per scene and `tools/demo/out/audio/durations.json`, each line's length.
+It writes one WAV per scene and `tools/demo/out/audio/durations.json`: each line's length and a hash of its words. If you change a line later, the walkthrough and the manifest name that scene until you render it again with `--only`.
 
 ## 3. Record the walkthrough
 
@@ -64,16 +64,16 @@ tools/demo/.venv/bin/python -m tools.demo.walkthrough            # the live site
 tools/demo/.venv/bin/python -m tools.demo.walkthrough --headed   # watch it
 ```
 
-It refuses to record if `durations.json` is missing, older than `script.md`, or missing a scene. Each footage scene waits until the page shows it is done (the answer's citations, the Agent's "Send to Playground" button, the run's `exit 0` line), then holds for its line. Explainer scenes get only a mark: part B draws them. If a scene fails, a full-page screenshot is saved next to the recording. A full take lasts about 2 to 3 minutes plus the narration.
+It refuses to record if `durations.json` is missing a scene or any line changed since it was rendered, and if the script's footage scenes and the recorder's page actions don't match. The voice starts with each scene. Each footage scene waits until the page shows it is done (the answer's "Sources" section, the Agent's "Send to Playground" button, the run's `exit 0` line) and logs that time as `done`, then holds for whatever is left of its line. A wait longer than the line is not held further; part B can speed it up from the `done` time, labelled on screen. Explainer scenes get only a mark: part B draws them. If a scene fails, a full-page screenshot is saved next to the recording. Each take gets its own file names (date and time), so a failed second take never overwrites a good first one.
 
 ## 4. Build the manifest
 
 ```bash
 tools/demo/.venv/bin/python -m tools.demo.manifest \
-  --log tools/demo/out/video/walkthrough-<date>.log --video tools/demo/out/video/walkthrough-<date>.webm
+  --log tools/demo/out/video/walkthrough-<date>-<time>.log --video tools/demo/out/video/walkthrough-<date>-<time>.webm
 ```
 
-It stops with the scene named if the log and the script disagree. Hand `tools/demo/out/manifest.json`, the `.webm` and `tools/demo/out/audio/*.wav` to part B (copied into personal-website's git-ignored `tools/explainers/public/footage/fastpilot/`).
+It stops with the scene named if the log and the script disagree, or a line changed since it was rendered. The URL the take recorded (live site or a local build) comes from the log, so a local build is named in the manifest. Hand `tools/demo/out/manifest.json`, the `.webm` and `tools/demo/out/audio/*.wav` to part B (copied into personal-website's git-ignored `tools/explainers/public/footage/fastpilot/`).
 
 ## 5. After part B: the files in this repository
 
