@@ -55,6 +55,13 @@ These packages change how documents are found. A version change can quietly make
 - **`voyageai` and `voyage-embedders-haystack`:** run a live smoke test (`embed` at 2,048 dimensions, `rerank`, and Haystack's `VoyageTextEmbedder` against a direct call).
 - **`haystack-ai` and its integrations:** these are a planned migration, not a weekly update. Haystack 3 is a major release.
 
+## Updating `streamlit-monaco` or Monaco
+
+The frontend image serves Monaco itself (#65). `streamlit-monaco` 0.1.3 is built for `monaco-editor` 0.36.1, and its bundle names that version's jsDelivr address, which `frontend/monaco_patch.py` rewrites at build time.
+
+- Change `MONACO_VERSION` and `MONACO_SHA256` in `frontend/Dockerfile` together, and only together with `streamlit-monaco` (see #69).
+- If a new `streamlit-monaco` moves or changes the address, the image build fails with `monaco_patch: … not found`. Update `CDN_VS` in `monaco_patch.py`, then check Playground in a browser: the Monaco editor appears with syntax colours and you can type in it, and in DevTools every `monaco/vs/` request returns 200 from our own site. A failed load shows an empty or "Loading…" box, not the plain text box. If the Monaco files are missing from the image, the build fails with `monaco_patch: Monaco files missing`.
+
 ## Deploying
 
 Merging builds new images (`publish-ghcr.yml`) but deploys nothing: production runs a fixed image tag set at deploy time. Deploy by following the infra runbook. After an update that touches `fastembed`, check that the first backend boot loads `Qdrant/bm25`. Since 0.9, fastembed downloads it only from Hugging Face.

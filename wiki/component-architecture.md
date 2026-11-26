@@ -210,6 +210,11 @@ flowchart LR
   stylesheet draws, and for code) and fails if a token exists only in dark mode. The visual tests (`-m visual`) screenshot both themes.
 - **The Playground editor** (streamlit-monaco) cannot read our tokens: its "streamlit" theme keeps
   light syntax colours, so `playground_view._monaco_theme()` picks `vs-dark` in dark mode.
+- **Nothing loads from other sites (#65).** The fonts are files in `frontend/static/fonts/` (served at
+  `/app/static/fonts/`, `@font-face` rules in `styles.py`). Monaco 0.36.1 is copied into the image beside
+  streamlit-monaco's page by `frontend/Dockerfile` (SHA-256 checked), and `frontend/monaco_patch.py` rewrites
+  the bundle's jsDelivr address to `./monaco/vs`. `tests/test_self_hosting.py` fails if Google Fonts or
+  jsDelivr come back. See [[dependency-updates]] before updating streamlit-monaco.
 - To try a theme by hand: switch the computer's appearance, or in Chrome DevTools use Rendering →
   "Emulate CSS media feature prefers-color-scheme".
 

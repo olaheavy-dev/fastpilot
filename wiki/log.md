@@ -5,6 +5,12 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Fonts and Monaco from our own site (#65)
+
+- Visitors' browsers no longer contact Google Fonts or jsDelivr: font files in `frontend/static/fonts/`; Monaco 0.36.1 downloaded and SHA-256 checked in the frontend image build, its address rewritten by `frontend/monaco_patch.py`. Browser check of the built image: Chat and Playground make no outside requests; Monaco loads all files from `/component/…/monaco/vs/`.
+- Monaco stays 0.36.1 (latest 0.58.0; streamlit-monaco unmaintained since Sep 2023): follow-up #69.
+- Pages touched: [[component-architecture]], [[dependency-updates]].
+
 ## 2026-11-25 — Session hand-over (night)
 
 - **24-hour watch (22d), 23:08 UTC:** all five containers healthy on `sha-7517b7a`, no OOM kills; memory peaks against caps: backend 304/384 MB, frontend 80/256, runner 42/768, Redis 11/64, Qdrant 256/256 (page cache at its cap 1,302 times, only about 21 MB its own memory; never killed). The runner's 3 restarts are its 6-hourly rule (clean exit 0). No backend errors; the 24 Caddy errors all fall in 23 seconds during the 24 Nov 23:52 redeploy. Very light traffic (3 Gemini calls, 2 searches); spend far below the caps.

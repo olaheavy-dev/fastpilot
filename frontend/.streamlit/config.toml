@@ -38,6 +38,9 @@ borderColor = "#28324A"
 
 [server]
 headless = true
+# Serve frontend/static/ at /app/static/: the self-hosted font files (#65), so visitors'
+# browsers no longer contact Google Fonts.
+enableStaticServing = true
 
 # Visitors' browsers send nothing to Streamlit: its anonymous usage statistics are on by
 # default (founder, 25 Nov 2026: "Turn it off (Recommended)"; #61). The privacy note
