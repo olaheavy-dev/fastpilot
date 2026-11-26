@@ -60,3 +60,8 @@ secrets.toml
 # Production secrets (deploy/): real env files and the Redis config are never committed
 deploy/*.env
 deploy/redis.conf
+
+# Demo video (#20): voice recordings, rendered audio and footage never go in git
+tools/demo/voice/
+tools/demo/out/
+tools/demo/.venv/
