@@ -4,7 +4,7 @@ One `## <scene> (footage|explainer)` section per beat, read in a cloned voice by
 Footage scenes are recorded by `walkthrough.py`; explainer scenes are drawn in Remotion (part B of
 the plan). A blank line inside a scene is a short pause. `<!-- source: … -->` comments say where a
 fact comes from and are never read aloud; a `<!-- caption: … -->` comment replaces the caption when it
-should differ from the spoken words (a web address). Draft: the founder approves the wording before recording.
+should differ from the spoken words (a web address). Approved by the founder on 26 Nov 2026 ("script aproved"); a later change to a line needs approval again.
 
 ## 01-open (footage)
 This is FastPilot, a learning companion for FastAPI. You can ask it, watch it build, and practise, and everything it says comes from FastAPI's documentation, its project template and its GitHub community. <!-- source: docs/scoping.md, four corpus sources: docs, full-stack template, GitHub issues, GitHub discussions -->
