@@ -2,20 +2,15 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 26 Nov 2026, 17:55 UTC (end of session: #65 and five fixes merged, demo video part A built; 48-hour check tonight)
+**Updated:** 26 Nov 2026, 22:50 UTC (48-hour watch done, Agent and Playground stay on; `sha-e97ff28` deployed)
 
 ## Start of the next session
 
-1. **48-hour check (22d), about 21:20 UTC on 26 Nov** (WireGuard on, from the Mac): memory peaks against caps, restarts, runner and backend logs, Caddy errors, spend. The 24-hour check (25 Nov, 23:08 UTC) was healthy. Then **the founder decides whether Agent and Playground stay on**.
-2. **Deploy after the check:** the `sha-` of `main` with `deploy-fastpilot.sh --stage containers`. It carries #47 (dependency alerts), #49 (UI fixes), #63 and #66 (telemetry off), #73 (fonts and Monaco from our own site), #75 (frontend `.dockerignore`), #77 (base images pinned by digest) and #78 (Opik pings every 60 s). Then check:
-   - the first backend boot loads `Qdrant/bm25` from Hugging Face (fastembed 0.9 has no other source);
-   - the public checks in both themes; Playground shows the Monaco editor, and the browser makes no request to Google Fonts or jsDelivr;
-   - the frontend log no longer says "Collecting usage statistics";
-   - the backend log shows Opik's `is-alive` pings about every 30 s (two clients, each every 60 s), not every 6 s.
-3. **After the deploy: the image-publishing bumps** #53, #54, #55, #56 and #80 (all reviewed; Codex clean on #53–#56; #80 still needs a review). Merge one at a time and watch the first image publish on `main`.
-4. **Showcase video (#20):** the founder records a 20-second voice sample (`docs/demo-video.md`, step 1); then render the narration and record the real take **after midnight UTC** (the live site allows 5 Agent runs per visitor a day, and today's checks used them). Then part B in personal-website ([plan](../superpowers/plans/2026-11-26-showcase-video-remotion.md)), starting with the Remotion approval PR (founder merge).
-5. #52 (Qdrant image): the local snapshot check, then a founder merge and a deploy at a quiet time.
-6. Then Part 0 of the corpus refresh (#29), which needs your three R2 tokens.
+1. **Image-publishing bumps** #53, #54, #55, #56 and #80 (#53 to #56 reviewed, Codex clean; #80 needs a review). Merge one at a time and watch the first image publish on `main`.
+2. **Showcase video (#20):** the founder records a 20-second voice sample (`docs/demo-video.md`, step 1); then render the narration and record the real take (after midnight UTC, when the Agent limit has reset). Then part B in personal-website ([plan](../superpowers/plans/2026-11-26-showcase-video-remotion.md)), starting with the Remotion approval PR (founder merge).
+3. #52 (Qdrant image): the local snapshot check, then a founder merge and a deploy at a quiet time.
+4. Infra 22e step 5 (App Registry and docs) and infra#128 (the 22d record).
+5. Then Part 0 of the corpus refresh (#29), which needs your three R2 tokens.
 
 ## Open pull requests
 
@@ -32,7 +27,7 @@ Infra: none.
 ## Where we are
 
 - **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts (8 critical, 83 high, 44 moderate, 3 low) in indirect packages in `uv.lock`, each shipping in the backend image, the frontend image or both. #47 (merged) clears all 138 by upgrading the lock; an OSV scan of the new lock finds none. Your choices: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67 and fastembed 0.9.1; and "Upgrade, approve boto3 (Recommended)" for litellm 1.111, which puts `boto3` in the backend image. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Weekly update PRs start when the config merges (your choice: "Yes, after the alert fix (Recommended)"). Each `uv` PR needs `scripts/export_constraints.sh` run on its branch before CI passes (`wiki/dependency-updates.md`).
-- **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on (Phase 22c, infra #112 and the infra log). Now on image `sha-7517b7a` (theme fix, deployed the same night). All runner proofs and public checks passed. The 48-hour watch (22d) runs until 26 Nov. Merged since, waiting to deploy: #47, #49, #63, #66, #73, #75, #77, #78.
+- **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on. **Now on `sha-e97ff28`** (deployed 26 Nov, 22:42 UTC; carries #47, #49, #63, #66, #73, #75, #77, #78). The 48-hour watch (22d) ended healthy: no errors, no OOM, memory peaks under caps, runner restarts only by its 6-hour rule; your choice: Agent and Playground stay on ("Keep them on (Recommended)"). After the deploy: `/health` healthy, `Qdrant/bm25` loaded, Opik pings once a minute per client, and a browser check in both themes found no request to any other site. Details: infra#128.
 - **Themes fixed and deployed (24 Nov, about 23:55 UTC):** the app follows the visitor's system theme (the toggle is removed; your choice: "Follow the system only (Recommended)"), with code, link and border colours set for both themes and a readable Playground editor in dark mode (#40). Production runs `sha-7517b7a`; live checks in both themes passed. You chose "Stay on Streamlit (Recommended)": no React rewrite.
 - **Privacy (25 Nov):** Streamlit usage statistics off (#63); Haystack, Opik's own Sentry crash reports and Hugging Face telemetry forced off (#66); decisions in `docs/production-decisions.md`. Google Fonts and jsDelivr removed by #73 (fonts and Monaco 0.36.1 served from our own site; upgrade weighed in #69, no known vulnerabilities). Opik's connection pings every 60 s, not every 6 s (#78; your choice: "Every 60 seconds (Recommended)").
 - **Build hygiene (26 Nov):** base images pinned by digest with grouped Dependabot updates (#77; your choice: "Pin all three + Dependabot (Recommended)"); frontend `.dockerignore` (#75); README and wiki links to `olaheavy-dev/fastpilot` (#74).
@@ -66,7 +61,8 @@ flowchart LR
 
 ## Founder to-dos
 
-- [ ] Tonight, about 21:20 UTC: the 48-hour check, then decide whether Agent and Playground stay on.
+- [x] The 48-hour check and decision (26 Nov: Agent and Playground stay on).
+- [ ] Read the Gemini usage page (against its $10 cap) and Voyage's (against the $7.50 alert): not read in the 48-hour check.
 - [ ] Record a 20-second voice sample for the demo (`docs/demo-video.md`, step 1). Never commit it.
 - [ ] Merge the Remotion approval PR in personal-website when part B starts (decision 0012).
 - [ ] Keep the Mac awake during long agent work (`caffeinate -dimsu`): a sleep stopped a reviewer on 26 Nov.

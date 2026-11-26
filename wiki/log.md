@@ -5,6 +5,10 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — 48-hour watch done; sha-e97ff28 deployed
+
+- The 22d watch ended healthy (figures in infra#128); the founder kept Agent and Playground on. Deployed `sha-e97ff28` at 22:42 UTC: fonts and Monaco from our own site, Opik pings once a minute, pinned base images, `.dockerignore`, plus #47, #49, #63, #66. Checks after: health, `Qdrant/bm25` loaded, no outside requests in either theme.
+
 ## 2026-11-26 — Session hand-over (evening)
 
 - **Merged:** #73 (fonts and Monaco self-hosted), #74, #75, #77, #78, #81 (video route), #82 (demo tools), #83, #84 (script approved, four ports); Dependabot #51, #57, #58, #59, #60. Closed infra #102 (uptime) and #38, #62, #65, #70, #72.
