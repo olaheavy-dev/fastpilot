@@ -64,7 +64,7 @@
 - Produces: `<RetrievalScene scene={Scene} tokens={…} />`, `<RunnerScene scene={Scene} tokens={…} />`, each lasting `Math.ceil(scene.seconds * fps)` frames.
 
 - [ ] **Step 1: Write the failing tests:** each scene's duration helper returns `Math.ceil(9.8 * 30) = 294` frames for a 9.8 s line at 30 fps; each scene's step labels (from a constant list) contain no dash between words.
-- [ ] **Step 2:** FAIL. **Step 3:** Implement. Retrieval: question → hybrid search (dense + BM25) → rerank → grounded answer with citations, one step lit at a time. Runner: visitor's code → isolated runner (no network, time and memory limits, processes and files removed after each run) → output. Copy for labels comes from FastPilot's `wiki/component-architecture.md`; the owner approves it before the final render.
+- [ ] **Step 2:** FAIL. **Step 3:** Implement. Retrieval: first the stack (FastAPI backend streaming to the Streamlit app, Qdrant, Voyage, Gemini), then question → hybrid search (dense + BM25) → rerank → grounded answer with citations, one step lit at a time (the 05-retrieval narration, ported from the Loom demo on 26 Nov 2026). Runner: visitor's code → isolated runner (no network, time and memory limits, processes and files removed after each run) → output. Copy for labels comes from FastPilot's `wiki/component-architecture.md`; the owner approves it before the final render.
 - [ ] **Step 4:** PASS; `pnpm --filter explainers exec remotion studio` shows both. **Step 5:** Commit.
 
 ### Task 4: The edit: `FastPilotDemo` and `FastPilotCut`

@@ -36,6 +36,9 @@ QUESTION = "Demo: how do I add JWT authentication to a FastAPI app?"
 AGENT_TASK = "Demo: a GET /greet/{name} endpoint that returns a greeting, with a test that calls it"
 # The answer is finished when the Sources expander appears: citations render while it streams.
 ANSWER_DONE = "text=/^Sources \\(\\d+\\)$/"
+# A rewritten follow-up shows "↻ searched as: …" above the sources once its answer is complete.
+FOLLOWUP = "Demo: can I make it expire?"
+FOLLOWUP_DONE = ".fp-rewrite-note"
 DONE_TIMEOUT_MS = 120_000  # a streamed answer or an agent run can take a while
 EXPLAINER_GAP_S = 0.5  # a short still on the page where Remotion inserts the explainer
 
@@ -143,6 +146,13 @@ def _sources(page: Any) -> str:
     return ".fp-src-path"
 
 
+def _followup(page: Any) -> str:
+    box = page.get_by_placeholder(re.compile("Ask a follow-up"))
+    box.fill(FOLLOWUP)
+    box.press("Enter")
+    return FOLLOWUP_DONE
+
+
 def _agent(page: Any) -> str:
     _pick_mode(page, "Agent")
     box = page.get_by_placeholder(re.compile("Describe an endpoint"))
@@ -171,9 +181,10 @@ ACTIONS: dict[str, Action] = {
     "01-open": _open,
     "02-ask": _ask,
     "03-sources": _sources,
-    "05-agent": _agent,
-    "06-playground": _playground,
-    "08-close": _close,
+    "04-followup": _followup,
+    "06-agent": _agent,
+    "07-playground": _playground,
+    "09-close": _close,
 }
 
 

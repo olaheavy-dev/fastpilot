@@ -5,6 +5,10 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Demo script: four ports from the Loom demo and Foresight (#20)
+
+- `tools/demo/script.md` now opens on the problem, adds a follow-up scene ("can I make it expire?", the "searched as" note), mentions the Agent's self-correction, adds the stack to the retrieval explainer and closes on "learn FastAPI, fast" (founder's choice: all four). Scenes renumbered to 9; `walkthrough.py` has the follow-up action. The founder approved the changed lines the same day. Live check: the follow-up scene worked; the Agent scene hit the live site's 5-runs-a-day limit (noted in `docs/demo-video.md`).
+
 ## 2026-11-26 — Demo video, part A: capture tools (#20)
 
 - `tools/demo/` (outside the app and its images, own environment): `narrate.py` (from Foresight; cloned voice, labelled AI-generated), `script.md` (8 scenes, sources as comments), `walkthrough.py` (Playwright on the live site, held to the narration; switches the semantic cache off so the answer streams; screenshot on a failed scene) and `manifest.py` (hands footage windows and audio to part B, Remotion in personal-website). How-to: `docs/demo-video.md`. Live selector check on the live site: two clean runs end to end.

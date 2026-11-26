@@ -13,7 +13,9 @@ import pytest
 from tools.demo.manifest import build_manifest
 from tools.demo.narrate import Scene, scenes, text_hash
 from tools.demo.walkthrough import (
+    ACTIONS,
     ANSWER_DONE,
+    FOLLOWUP_DONE,
     Marker,
     check_actions,
     hold_for,
@@ -308,3 +310,12 @@ def test_manifest_names_a_scene_missing_from_durations(tmp_path):
     log = _log(tmp_path, "0.30 scene 01-open\n4.00 scene 04-retrieval\n4.50 scene 05-agent\n20.00 scene end\n")
     with pytest.raises(ValueError, match="05-agent"):
         build_manifest(log, _video(tmp_path), _write(tmp_path, FULL), {"01-open": 3.1, "04-retrieval": 9.8})
+
+
+def test_followup_waits_for_the_searched_as_note():
+    """The rewritten question ("searched as") shows above the sources once the answer is complete."""
+    assert FOLLOWUP_DONE == ".fp-rewrite-note"
+
+
+def test_the_approved_script_and_the_recorder_agree():
+    check_actions(scenes(Path(__file__).resolve().parents[1] / "tools" / "demo" / "script.md"), ACTIONS)

@@ -12,7 +12,8 @@ The method comes from Foresight's demo (its `docs/demo-video.md`), which made a 
 - **Never commit a voice recording or the narration's WAV files.** A short sample is enough for anyone to clone the voice. `tools/demo/voice/`, `tools/demo/out/` and every `.wav` under `tools/demo/` are git-ignored. Only the finished, labelled MP4 is committed (step 5).
 - **Every frame of the final video says the narration is AI-generated.** `manifest.json` carries `"narration": "ai-generated"`, and part B draws the label.
 - **Every number in the narration has a source.** `script.md` cites it in a `<!-- source: … -->` comment, which is never read aloud.
-- **Each live take costs a few cents** (one Chat question with the semantic cache switched off, one Agent run, one Playground run) and leaves Opik traces. The question and the Agent task start with "Demo:", so the traces are easy to spot.
+- **Agent runs are limited to 5 per visitor a day** (reset at midnight UTC), and each take uses one. If the Agent scene stops with "You've used today's 5 Agent runs" in its failure screenshot, record after midnight UTC.
+- **Each live take costs a few cents** (two Chat questions with the semantic cache switched off, one Agent run, one Playground run) and leaves Opik traces. The question and the Agent task start with "Demo:", so the traces are easy to spot.
 - If Agent or Playground are switched off on the live site, record against a local build (`--url`), and say so in the viewer notes.
 
 ## One-time setup (macOS, Apple Silicon)
