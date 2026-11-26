@@ -7,7 +7,7 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ## 2026-11-26 — Demo script: four ports from the Loom demo and Foresight (#20)
 
-- `tools/demo/script.md` now opens on the problem, adds a follow-up scene ("can I make it expire?", the "searched as" note), mentions the Agent's self-correction, adds the stack to the retrieval explainer and closes on "learn FastAPI, fast" (founder's choice: all four). Scenes renumbered to 9; `walkthrough.py` has the follow-up action. The changed lines await the founder's approval. Live check: the follow-up scene worked; the Agent scene hit the live site's 5-runs-a-day limit (noted in `docs/demo-video.md`).
+- `tools/demo/script.md` now opens on the problem, adds a follow-up scene ("can I make it expire?", the "searched as" note), mentions the Agent's self-correction, adds the stack to the retrieval explainer and closes on "learn FastAPI, fast" (founder's choice: all four). Scenes renumbered to 9; `walkthrough.py` has the follow-up action. The founder approved the changed lines the same day. Live check: the follow-up scene worked; the Agent scene hit the live site's 5-runs-a-day limit (noted in `docs/demo-video.md`).
 
 ## 2026-11-26 — Demo video, part A: capture tools (#20)
 

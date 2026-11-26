@@ -9,7 +9,8 @@ should differ from the spoken words (a web address).
 Approved by the founder on 26 Nov 2026 ("script aproved"); a later change to a line needs approval again.
 Changed on 26 Nov 2026, ported from the earlier Loom demo (`video-transcript.md`) and Foresight's script
 (founder's choice: all four ports): the problem-first opener, the follow-up scene, the Agent's
-self-correction and the closing tagline with the stack. These changed lines await the founder's approval.
+self-correction and the closing tagline with the stack. The founder approved these changes the same day
+("Approve the changes (Recommended)").
 
 ## 01-open (footage)
 Learning FastAPI means jumping between the docs, the project template and GitHub threads, and all that tab-switching makes learning feel fragmented. <!-- source: video-transcript.md, Problem Setup -->
