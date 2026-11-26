@@ -5,6 +5,10 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Base images pinned by digest (#72)
+
+- All three Dockerfiles use `python:3.12-slim@sha256:191083cd…`; Dependabot's `docker` updates move them together (weekly, 7-day cooldown, 3.12 only). `tests/test_base_images.py` checks the pins and the config. Pages touched: [[dependency-updates]].
+
 ## 2026-11-26 — Frontend `.dockerignore` (#70)
 
 - `frontend/.dockerignore` keeps `__pycache__`, `.DS_Store`, top-level Markdown notes and `railway.toml` out of the frontend image; `tests/test_self_hosting.py` checks the app's files are never ignored. Built image checked: only the app, `.streamlit/` and the fonts with their licences.
