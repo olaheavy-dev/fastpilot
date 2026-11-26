@@ -38,7 +38,7 @@ On the first uv pull request, also check the `uv.lock` diff for header or format
 
 ## Handling a base-image pull request
 
-The backend, frontend and runner Dockerfiles start from `python:3.12-slim` pinned by digest (`@sha256:…`), all three the same (`tests/test_base_images.py` checks this). Dependabot moves all three pins in **one** grouped pull request, usually a newer Debian or Python 3.12.x build with security patches; it never proposes Python 3.13. CI builds all three images on the pull request. Merge on green checks like a small update; production changes at the next deploy, which then runs the public checks.
+The backend, frontend and runner Dockerfiles start from `python:3.12-slim` pinned by digest (`@sha256:…`), all three the same (`tests/test_base_images.py` checks this). Dependabot moves all three pins in **one** grouped pull request (`group-by: dependency-name`), usually a newer Debian or Python 3.12.x build with security patches. It should never propose Python 3.13, and the 7-day cooldown may not delay digest-only refreshes: GitHub's docs don't say either way, so check the first real pull request (Insights → Dependency graph → Dependabot shows the run logs). CI builds all three images on the pull request. Merge on green checks like a small update; production changes at the next deploy, which then runs the public checks.
 
 Founder's choice, 26 Nov 2026: "Pin all three + Dependabot (Recommended)": repeatable builds, with patches arriving as reviewable pull requests instead of silently on any build.
 

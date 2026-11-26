@@ -21,6 +21,8 @@ Dependabot's first batch (opened 25 Nov, after #48). None is a security fix and 
 - **Major bumps, review first:** #59 ruff 0.15→0.17 (a `0.x` minor counts as major), #51 actions/setup-python 6→7, #53 actions/checkout 5→7, #54 docker/setup-buildx-action 3→4, #55 docker/login-action 3→4, #56 docker/metadata-action 5→6. #54–#56 change the image-publishing workflow: merge them after tomorrow's deploy, not before.
 - **Image PR, review first (your rule):** #52 qdrant/qdrant v1.18.0→v1.18.3: the local check against a restored snapshot, then a deploy at a quiet time. `qdrant-client` stays on 1.18.
 
+- **Base-image PRs (new, from #77):** one grouped weekly PR moves the `python:3.12-slim` digest in the backend, frontend and runner Dockerfiles together. Merge on green checks; it deploys with the next deploy. Check the first one really is a single PR (Dependabot run logs).
+
 Infra: none.
 
 ## Where we are

@@ -46,4 +46,8 @@ def test_dependabot_moves_the_pins():
     ignored = {i["dependency-name"]: i["update-types"] for i in update["ignore"]}
     assert set(ignored["python"]) == {"version-update:semver-minor", "version-update:semver-major"}
     # One pull request moves all three pins together, so the images never differ.
-    assert update["groups"]["base-images"]["patterns"] == ["python"]
+    group = update["groups"]["base-images"]
+    assert group["patterns"] == ["python"]
+    # Without group-by, Dependabot groups per directory and would open three PRs, each failing
+    # test_one_digest_for_all_images (GitHub docs: "Grouping updates across directories").
+    assert group["group-by"] == "dependency-name"

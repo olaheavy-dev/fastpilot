@@ -90,6 +90,9 @@ updates:
     groups:
       base-images:
         patterns: ["python"]
+        # Group across the three directories, not per directory (GitHub docs: "Grouping
+        # updates across directories in a monorepo").
+        group-by: dependency-name
     ignore:
       - dependency-name: "python"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
