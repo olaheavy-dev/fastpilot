@@ -170,3 +170,14 @@ def test_main_reports_failure_with_exit_code(tmp_path, monkeypatch, capsys):
 
 def test_installed_package_not_modified():
     assert _files_containing(package_build_dir(), CDN_VS) != []
+
+
+# --- The frontend image copies only what it runs (#70) -----------------------------------------
+
+
+def test_frontend_dockerignore_keeps_notes_out_and_app_in():
+    ignore = (FRONTEND / ".dockerignore").read_text().split()
+    for pattern in ("**/__pycache__", "**/.DS_Store", "*.md", "railway.toml"):
+        assert pattern in ignore, pattern
+    # What the app needs at runtime must never be ignored.
+    assert not {".streamlit", "static", "*.py", "*.woff2"} & set(ignore)
