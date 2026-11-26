@@ -7,7 +7,7 @@ How FastPilot's packages stay current and safe. The config is `.github/dependabo
 | Kind | What it does | Turned on |
 |---|---|---|
 | **Alerts** | Reports a known vulnerability in any package in `uv.lock`, including indirect ones. Shown under the repository's Security tab. | 25 Nov 2026 (before then they were off) |
-| **Version updates** | Opens pull requests each Monday at 06:00 (London time) for newer versions of the **direct** `uv` dependencies (the packages named in `pyproject.toml`), GitHub Actions, and the pinned Qdrant and Redis images in `deploy/docker-compose.prod.yml`. Adding or changing the config also starts a check straight away. | 25 Nov 2026 |
+| **Version updates** | Opens pull requests each Monday at 06:00 (London time) for newer versions of the **direct** `uv` dependencies (the packages named in `pyproject.toml`), GitHub Actions, the pinned Qdrant and Redis images in `deploy/docker-compose.prod.yml`, and the `python:3.12-slim` base image of the backend, frontend and runner images (pinned by digest since 26 Nov 2026, #72). Adding or changing the config also starts a check straight away. | 25 Nov 2026 |
 | **Security updates** | Opens a pull request for an alert, including in indirect packages. Each needs the constraints step below. | 25 Nov 2026 (founder: "Yes, turn them on (Recommended)") |
 
 The first alert scan found 138 open alerts, all in **indirect** packages; PR #47 cleared all of them (see [[log]], 25 Nov 2026). Weekly version updates do not cover indirect packages. Security updates now open a pull request for such an alert; if one cannot (for example when a parent package caps the version), fix it by hand with `uv lock --upgrade-package <name>`, then follow the steps below.
@@ -35,6 +35,12 @@ Work on **one pull request at a time**, the one you are about to merge:
 6. Then let Dependabot rebase the next pull request **before** you touch it. Every uv pull request changes `uv.lock` and both constraints files, so merging one puts the others in conflict. Once someone else has pushed to a Dependabot branch, Dependabot stops rebasing it, and `@dependabot recreate` would drop the constraints commit.
 
 On the first uv pull request, also check the `uv.lock` diff for header or format changes: Dependabot's own uv version may differ from CI's.
+
+## Handling a base-image pull request
+
+The backend, frontend and runner Dockerfiles start from `python:3.12-slim` pinned by digest (`@sha256:…`), all three the same (`tests/test_base_images.py` checks this). Dependabot moves all three pins in **one** grouped pull request (`group-by: dependency-name`), usually a newer Debian or Python 3.12.x build with security patches. It should never propose Python 3.13, and the 7-day cooldown may not delay digest-only refreshes: GitHub's docs don't say either way, so check the first real pull request (Insights → Dependency graph → Dependabot shows the run logs). CI builds all three images on the pull request. Merge on green checks like a small update; production changes at the next deploy, which then runs the public checks.
+
+Founder's choice, 26 Nov 2026: "Pin all three + Dependabot (Recommended)": repeatable builds, with patches arriving as reviewable pull requests instead of silently on any build.
 
 ## Handling a `docker-compose` pull request
 
