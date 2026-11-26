@@ -65,3 +65,4 @@ deploy/redis.conf
 tools/demo/voice/
 tools/demo/out/
 tools/demo/.venv/
+tools/demo/**/*.wav

@@ -9,8 +9,9 @@ scenes are drawn in Remotion (part B), so here they get only a mark in the log.
     python -m tools.demo.walkthrough                       # the live site
     python -m tools.demo.walkthrough --url http://localhost:8501 --headed
 
-Writes `out/video/walkthrough-<date>.webm` and `.log` (one line per scene: seconds since the
-recording started, then `scene <name>`). Every live take makes real Gemini and Voyage calls (a few
+Writes `out/video/walkthrough-<date>-<time>.webm` and `.log`: the URL, then one line per event,
+seconds since the recording started, then `scene <name>` (the scene starts) or `done <name>` (the
+page shows it is done). Every live take makes real Gemini and Voyage calls (a few
 cents) and Opik traces; the question starts with "Demo:" so the traces are easy to spot.
 Run it in the demo environment (tools/demo/requirements.txt).
 """
@@ -27,12 +28,14 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
-from tools.demo.narrate import Scene, scenes
+from tools.demo.narrate import Scene, scenes, text_hash
 
 HERE = Path(__file__).resolve().parent
 LIVE_URL = "https://fastpilot.olaheavy.dev"
 QUESTION = "Demo: how do I add JWT authentication to a FastAPI app?"
 AGENT_TASK = "Demo: a GET /greet/{name} endpoint that returns a greeting, with a test that calls it"
+# The answer is finished when the Sources expander appears: citations render while it streams.
+ANSWER_DONE = "text=/^Sources \\(\\d+\\)$/"
 DONE_TIMEOUT_MS = 120_000  # a streamed answer or an agent run can take a while
 EXPLAINER_GAP_S = 0.5  # a short still on the page where Remotion inserts the explainer
 
@@ -40,45 +43,71 @@ Action = Callable[[Any], "str | None"]  # runs a scene's page actions, returns i
 
 
 def load_durations(path: Path, script: Path) -> dict[str, float]:
-    """Each scene's line length. Refuses to record to missing or out-of-date timings."""
+    """Each scene's line length. Refuses missing narration, and any scene whose words changed since
+    it was rendered (checked by a hash of the words, not by file times)."""
     if not path.exists():
         raise SystemExit(f"{path} not found: render the narration first (narrate.py), then record")
-    if path.stat().st_mtime < script.stat().st_mtime:
-        raise SystemExit(f"{path} is older than {script}: render the narration again, then record")
-    lengths = json.loads(path.read_text())
-    missing = [name for name in scenes(script) if name not in lengths]
+    rendered = json.loads(path.read_text())
+    current = scenes(script)
+    missing = [name for name in current if name not in rendered]
     if missing:
-        raise SystemExit(f"{path} has no length for: {', '.join(missing)}")
-    return {name: float(seconds) for name, seconds in lengths.items()}
+        raise SystemExit(f"{path} has no narration for: {', '.join(missing)}")
+    stale = [name for name, scene in current.items() if rendered[name].get("text_sha") != text_hash(scene.text)]
+    if stale:
+        raise SystemExit(f"words changed since the narration was rendered: {', '.join(stale)} (narrate.py --only)")
+    return {name: float(rendered[name]["seconds"]) for name in current}
 
 
-def hold_for(page: Any, done_selector: str | None, seconds: float, clock: Any = time) -> None:
-    """Wait until the page shows the scene is done, then hold for the narration line."""
+def hold_for(page: Any, done_selector: str | None, seconds: float, started: float, clock: Any = time) -> None:
+    """Wait until the page shows the scene is done, then hold for what is left of its line.
+
+    The voice starts with the scene, so the wait counts towards the line; a wait longer than the
+    line is not held any further (part B can speed it up, using the `done` mark)."""
     if done_selector:
         page.locator(done_selector).first.wait_for(state="visible", timeout=DONE_TIMEOUT_MS)
-    clock.sleep(seconds)
+    clock.sleep(max(0.0, seconds - (clock.monotonic() - started)))
 
 
 class Marker:
-    """Writes `<seconds> scene <name>` lines, timed from when recording started."""
+    """Writes `<seconds> scene|done <name>` lines, timed from when recording started."""
 
-    def __init__(self, log: Path, clock: Any = time) -> None:
+    def __init__(self, log: Path, clock: Any = time, url: str | None = None) -> None:
         self.log, self.clock, self.start = log, clock, clock.monotonic()
-        log.write_text("")
+        log.write_text(f"# url {url}\n" if url else "")
 
-    def mark(self, name: str) -> None:
+    def mark(self, name: str, event: str = "scene") -> float:
+        now = self.clock.monotonic()
         with self.log.open("a") as f:
-            f.write(f"{self.clock.monotonic() - self.start:.2f} scene {name}\n")
+            f.write(f"{now - self.start:.2f} {event} {name}\n")
+        return now
 
 
 def run_scene(
     page: Any, name: str, scene: Scene, seconds: float, marker: Marker, actions: dict[str, Action], clock: Any = time
 ) -> None:
-    marker.mark(name)
+    started = marker.mark(name)
     if scene.kind == "explainer":
         clock.sleep(EXPLAINER_GAP_S)
         return
-    hold_for(page, actions[name](page), seconds, clock=clock)
+    done = actions[name](page)
+    if done:
+        page.locator(done).first.wait_for(state="visible", timeout=DONE_TIMEOUT_MS)
+    marker.mark(name, event="done")
+    hold_for(page, None, seconds, started=started, clock=clock)
+
+
+def check_actions(script: dict[str, Scene], actions: dict[str, Any]) -> None:
+    """Every footage scene has page actions, and every page action has its footage scene."""
+    footage = {name for name, scene in script.items() if scene.kind == "footage"}
+    problems = [f"no page actions for footage scene {n}" for n in sorted(footage - set(actions))]
+    problems += [f"page actions for {n}, which is not a footage scene" for n in sorted(set(actions) - footage)]
+    if problems:
+        raise SystemExit("; ".join(problems))
+
+
+def take_stem(now: dt.datetime) -> str:
+    """One name per take, so a second take never overwrites the first one's files."""
+    return f"walkthrough-{now:%Y-%m-%d-%H%M%S}"
 
 
 # --- Page actions, one per footage scene (selectors as in tests/test_visual.py) ----------------
@@ -104,7 +133,7 @@ def _ask(page: Any) -> str:
     box = page.get_by_placeholder(re.compile("Ask about FastAPI"))
     box.fill(QUESTION)
     box.press("Enter")
-    return "sup.fp-cite"  # citations render when the answer is complete
+    return ANSWER_DONE
 
 
 def _sources(page: Any) -> str:
@@ -159,21 +188,19 @@ def main() -> None:  # pragma: no cover - drives a real browser
 
     script = scenes(args.script)
     lengths = load_durations(args.durations, args.script)
-    unknown = [n for n, s in script.items() if s.kind == "footage" and n not in ACTIONS]
-    if unknown:
-        sys.exit(f"no page actions for footage scenes: {', '.join(unknown)}")
+    check_actions(script, ACTIONS)
 
     from playwright.sync_api import sync_playwright
 
     args.out.mkdir(parents=True, exist_ok=True)
-    stem = f"walkthrough-{dt.date.today().isoformat()}"
+    stem = take_stem(dt.datetime.now())
     raw = args.out / "raw"
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not args.headed)
         size = {"width": 1600, "height": 1000}
         context = browser.new_context(viewport=size, record_video_dir=raw, record_video_size=size, color_scheme="light")
         page = context.new_page()
-        marker = Marker(args.out / f"{stem}.log")
+        marker = Marker(args.out / f"{stem}.log", url=args.url)
         page.goto(args.url)
         for name, scene in script.items():
             try:
