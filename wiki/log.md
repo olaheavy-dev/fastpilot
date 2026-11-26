@@ -5,6 +5,10 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Base images pinned by digest (#72)
+
+- All three Dockerfiles use `python:3.12-slim@sha256:191083cd…`; Dependabot's `docker` updates move them together (weekly, 7-day cooldown, 3.12 only). `tests/test_base_images.py` checks the pins and the config. Pages touched: [[dependency-updates]].
+
 ## 2026-11-26 — Fonts and Monaco from our own site (#65)
 
 - Visitors' browsers no longer contact Google Fonts or jsDelivr: font files in `frontend/static/fonts/`; Monaco 0.36.1 downloaded and SHA-256 checked in the frontend image build, its address rewritten by `frontend/monaco_patch.py`. Browser check of the built image: Chat and Playground make no outside requests; Monaco loads all files from `/component/…/monaco/vs/`.

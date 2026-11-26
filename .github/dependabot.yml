@@ -73,3 +73,23 @@ updates:
       # major move is a planned change.
       - dependency-name: "redis"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
+
+  # Base images of the three app images, pinned by digest (#72; founder, 26 Nov 2026:
+  # "Pin all three + Dependabot (Recommended)"). One grouped pull request moves all three pins,
+  # so the images never run different bases. Stays on Python 3.12, the version uv.lock and CI test.
+  - package-ecosystem: "docker"
+    directories: ["/app", "/frontend", "/runner"]
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      base-images:
+        patterns: ["python"]
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
