@@ -24,7 +24,7 @@ docs doesn't prove understanding. The only way to verify understanding is to run
 which means leaving the docs. FastPilot pulls retrieval + generation + a code sandbox into
 one loop so a learner can ask, watch working code get produced, and then tinker. Full
 framing — the problem, the user, and the corpus (514 docs → 4,232 chunks, 4 sources; the 23 Nov 2026 production rebuild has 4,241) — is in
-the [scoping essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs/scoping.md).
+the [scoping essay](https://github.com/olaheavy-dev/fastpilot/blob/main/docs/scoping.md).
 
 ## Tech stack
 
