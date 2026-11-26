@@ -5,6 +5,13 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Session hand-over (evening)
+
+- **Merged:** #73 (fonts and Monaco self-hosted), #74, #75, #77, #78, #81 (video route), #82 (demo tools), #83, #84 (script approved, four ports); Dependabot #51, #57, #58, #59, #60. Closed infra #102 (uptime) and #38, #62, #65, #70, #72.
+- **Opened:** #69 (Monaco upgrade, no known vulnerabilities), #71 and #76 (image hardening), #79 (one Opik client), #80 (Dependabot); agent-workflows#64 (review minors are fixed in rounds 1–2, not deferred).
+- **Learned:** local ruff lagged CI (0.15.18 vs 0.17.5) until `uv sync --locked --all-extras`; Dependabot did not answer `@dependabot rebase`, `gh pr update-branch --rebase` did; the live site's 5 Agent runs a day limit applies to demo takes too.
+- **Next:** the 48-hour check and deploy tonight (`docs/planning/status.md`).
+
 ## 2026-11-26 — Demo script: four ports from the Loom demo and Foresight (#20)
 
 - `tools/demo/script.md` now opens on the problem, adds a follow-up scene ("can I make it expire?", the "searched as" note), mentions the Agent's self-correction, adds the stack to the retrieval explainer and closes on "learn FastAPI, fast" (founder's choice: all four). Scenes renumbered to 9; `walkthrough.py` has the follow-up action. The founder approved the changed lines the same day. Live check: the follow-up scene worked; the Agent scene hit the live site's 5-runs-a-day limit (noted in `docs/demo-video.md`).
