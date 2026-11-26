@@ -7,8 +7,13 @@ note names neither. Founder's choice, 25 Nov 2026: "Self-host both (Recommended)
 from __future__ import annotations
 
 import re
+import shutil
 import tomllib
 from pathlib import Path
+
+import monaco_patch  # frontend/ is on pytest's pythonpath (pyproject.toml)
+import pytest
+from monaco_patch import CDN_VS, LOCAL_VS, PatchError, package_build_dir, patch_bundle
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -81,3 +86,52 @@ def test_font_licences_shipped():
     for name in ("OFL-SourceSans3.txt", "OFL-JetBrainsMono.txt"):
         text = (FONTS / name).read_text(encoding="utf-8")
         assert "SIL OPEN FONT LICENSE" in text.upper()
+
+
+# --- Monaco: streamlit-monaco's bundle names jsDelivr; the image build rewrites it -------------
+
+def _copy_build(tmp_path: Path) -> Path:
+    dest = tmp_path / "build"
+    shutil.copytree(package_build_dir(), dest)
+    return dest
+
+
+def _files_containing(folder: Path, text: str) -> list[Path]:
+    return [p for p in folder.rglob("*") if p.is_file() and text in p.read_text(encoding="utf-8", errors="ignore")]
+
+
+def test_patch_rewrites_real_bundle(tmp_path):
+    build = _copy_build(tmp_path)
+    assert patch_bundle(build) == 1
+    assert _files_containing(build, "cdn.jsdelivr.net") == []
+    assert len(_files_containing(build, f'"{LOCAL_VS}"')) == 1
+
+
+def test_patch_fails_when_address_missing(tmp_path):
+    (tmp_path / "chunk.js").write_text('const vs = "somewhere/else";')
+    with pytest.raises(PatchError, match="not found"):
+        patch_bundle(tmp_path)
+
+
+def test_patch_fails_on_leftover_cdn(tmp_path):
+    (tmp_path / "a.js").write_text(f'paths:{{vs:"{CDN_VS}"}}')
+    (tmp_path / "b.js").write_text('load("https://cdn.jsdelivr.net/npm/other@1/x.js")')
+    with pytest.raises(PatchError, match="still"):
+        patch_bundle(tmp_path)
+
+
+def test_patch_is_idempotent_failure_message(tmp_path):
+    build = _copy_build(tmp_path)
+    assert patch_bundle(build) == 1
+    with pytest.raises(PatchError, match="already patched"):
+        patch_bundle(build)
+
+
+def test_main_reports_failure_with_exit_code(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(monaco_patch, "package_build_dir", lambda: tmp_path)
+    assert monaco_patch.main() == 1
+    assert "not found" in capsys.readouterr().err
+
+
+def test_installed_package_not_modified():
+    assert _files_containing(package_build_dir(), CDN_VS) != []
