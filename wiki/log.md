@@ -5,6 +5,10 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Demo video, part A: capture tools (#20)
+
+- `tools/demo/` (outside the app and its images, own environment): `narrate.py` (from Foresight; cloned voice, labelled AI-generated), `script.md` (8 scenes, sources as comments), `walkthrough.py` (Playwright on the live site, held to the narration; switches the semantic cache off so the answer streams; screenshot on a failed scene) and `manifest.py` (hands footage windows and audio to part B, Remotion in personal-website). How-to: `docs/demo-video.md`. Live selector check on the live site: two clean runs end to end.
+
 ## 2026-11-26 — Opik pings every minute, not every 6 seconds (#62)
 
 - Cause: Opik SDK 2.0.73's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not, and the backend has two clients (`observability.opik_client()` and `@track`'s cached client). Reproduced against a local stand-in server: 4 pings in 31 s with one client, 8 with two, 2 with a 300 s interval. `app/config.get_settings()` now defaults `OPIK_CONNECTION_MONITOR_PING_INTERVAL=60` after loading `.env` (so a value there wins; Codex review) (founder: "Every 60 seconds (Recommended)"): the interval is also the longest time traces wait after a failed send, and they are lost if the backend stops first. `tests/test_telemetry.py` checks it.
