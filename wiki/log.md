@@ -5,6 +5,10 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — Frontend `.dockerignore` (#70)
+
+- `frontend/.dockerignore` keeps `__pycache__`, `.DS_Store`, top-level Markdown notes and `railway.toml` out of the frontend image; `tests/test_self_hosting.py` checks the app's files are never ignored. Built image checked: only the app, `.streamlit/` and the fonts with their licences.
+
 ## 2026-11-26 — Old repository links (#38)
 
 - README badge and links, and essay links in [[feature-coverage]], [[overview]] and [[component-architecture]], now point to `olaheavy-dev/fastpilot` (the repository moved in #26). Older log entries keep the old name as history.
