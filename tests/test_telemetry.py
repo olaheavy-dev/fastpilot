@@ -49,15 +49,16 @@ def test_an_env_file_cannot_switch_telemetry_back_on(value):
 # --- Opik's connection monitor (#62) ---------------------------------------------------------
 # Each Opik client pings `is-alive/ping` every `connection_monitor_ping_interval` seconds (SDK
 # default 10), traffic or not, and the backend has two clients (ours and @track's), so production
-# pinged about every 6 seconds: 15,853 requests in 26 hours. 300 s keeps the outage detection
-# (failed traces are resent after Opik comes back) at about 580 pings a day.
+# pinged about every 6 seconds: 15,853 requests in 26 hours. After a failed send or ping, traces
+# wait locally until the next successful ping, so the interval is also the longest wait. Founder,
+# 26 Nov 2026: "Every 60 seconds (Recommended)": about 2,880 pings a day, at most a minute's wait.
 _PING = "import app, opik.config as c; print(c.OpikConfig().connection_monitor_ping_interval)"
 
 
-def test_opik_pings_every_five_minutes_by_default():
-    assert _run(_PING) == "300.0"
+def test_opik_pings_every_minute_by_default():
+    assert _run(_PING) == "60.0"
 
 
 def test_an_env_file_can_still_set_the_opik_ping_interval():
     """Defaulted, not forced: a different interval is an operations choice, not a privacy rule."""
-    assert _run(_PING, OPIK_CONNECTION_MONITOR_PING_INTERVAL="60") == "60.0"
+    assert _run(_PING, OPIK_CONNECTION_MONITOR_PING_INTERVAL="300") == "300.0"

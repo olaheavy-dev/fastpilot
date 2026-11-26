@@ -5,9 +5,9 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
-## 2026-11-26 — Opik pings every 5 minutes, not every 6 seconds (#62)
+## 2026-11-26 — Opik pings every minute, not every 6 seconds (#62)
 
-- Cause: Opik SDK 2.0.73's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not, and the backend has two clients (`observability.opik_client()` and `@track`'s cached client). Reproduced against a local stand-in server: 4 pings in 31 s with one client, 8 with two, 2 with the new 300 s default. `app/__init__.py` now defaults `OPIK_CONNECTION_MONITOR_PING_INTERVAL=300`; `tests/test_telemetry.py` checks it.
+- Cause: Opik SDK 2.0.73's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not, and the backend has two clients (`observability.opik_client()` and `@track`'s cached client). Reproduced against a local stand-in server: 4 pings in 31 s with one client, 8 with two, 2 with a 300 s interval. `app/__init__.py` now defaults `OPIK_CONNECTION_MONITOR_PING_INTERVAL=60` (founder: "Every 60 seconds (Recommended)"): the interval is also the longest time traces wait after a failed send, and they are lost if the backend stops first. `tests/test_telemetry.py` checks it.
 
 ## 2026-11-26 — Fonts and Monaco from our own site (#65)
 
