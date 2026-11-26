@@ -25,7 +25,19 @@ QUERY_TYPE_LABEL = {
 
 _CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* Fonts from our own site, not Google Fonts (#65): frontend/static/fonts/, served at /app/static/. */
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/app/static/fonts/source-sans-3-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('/app/static/fonts/source-sans-3-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 600; font-display: swap;
+  src: url('/app/static/fonts/source-sans-3-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Source Sans 3'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('/app/static/fonts/source-sans-3-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/app/static/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 500; font-display: swap;
+  src: url('/app/static/fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2'); }
 
 :root {
   --fp-text: #1C1917; --fp-app-bg: #FAFAF9; --fp-surface: #FFFFFF; --fp-surface-2: #F5F5F4;
