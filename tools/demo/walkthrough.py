@@ -183,6 +183,7 @@ def main() -> None:  # pragma: no cover - drives a real browser
                 page.screenshot(path=str(shot), full_page=True)
                 print(f"scene {name} failed; screenshot: {shot}", file=sys.stderr)
                 raise
+        marker.mark("end")  # closes the last footage scene's window (manifest.py needs it)
         video = page.video
         context.close()
         browser.close()
