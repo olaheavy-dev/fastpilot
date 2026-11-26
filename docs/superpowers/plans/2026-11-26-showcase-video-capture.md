@@ -74,10 +74,10 @@
   ```json
   {"version": 1, "narration": "ai-generated", "recorded": "2026-11-27", "url": "https://fastpilot.olaheavy.dev",
    "video": "walkthrough-2026-11-27.webm",
-   "scenes": [{"name": "01-open", "kind": "footage", "start": 0.0, "end": 6.4, "audio": "01-open.wav", "seconds": 6.1, "text": "…"},
-              {"name": "04-retrieval", "kind": "explainer", "start": null, "end": null, "audio": "04-retrieval.wav", "seconds": 9.8, "text": "…"}]}
+   "scenes": [{"name": "01-open", "kind": "footage", "start": 0.0, "end": 6.4, "done": 2.1, "audio": "01-open.wav", "seconds": 6.1, "text": "…", "caption": "…"},
+              {"name": "04-retrieval", "kind": "explainer", "start": null, "end": null, "done": null, "audio": "04-retrieval.wav", "seconds": 9.8, "text": "…", "caption": "…"}]}
   ```
-  Order is the script's. `start`/`end` are footage times from the log; `end` is the next mark's time. The walkthrough writes a final `scene end` mark after the last scene, so the last footage scene has an end.
+  Order is the script's. `start`/`end` are footage times from the log; `end` is the next mark's time. The walkthrough writes a final `scene end` mark after the last scene, so the last footage scene has an end. After review (26 Nov 2026): the log also carries `# url …` and `<t> done <name>` lines; `done` and `caption` are in each scene; narration freshness is checked per scene by a hash of its words, not by file times.
 
 - [ ] **Step 1: Write the failing tests:** `test_manifest_orders_by_script`; `test_manifest_rejects_missing_scene` (a scene with no mark → `ValueError` naming it); `test_manifest_rejects_unknown_mark` (a mark not in the script → `ValueError` naming it); `test_manifest_needs_an_end_mark`; `test_explainer_scenes_have_no_footage` (an explainer is marked but gets `start` and `end` null); `test_manifest_marks_ai_narration` (`"narration" == "ai-generated"`).
 - [ ] **Step 2: Run:** FAIL. **Step 3: Implement** `build_manifest` and `python -m tools.demo.manifest --log … --video …`. **Step 4: Run:** PASS. **Commit:** `Demo tools: manifest for the Remotion edit (#20)`.
