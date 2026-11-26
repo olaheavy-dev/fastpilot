@@ -12,6 +12,7 @@ lowercase fields below because ``case_sensitive=False``.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -133,4 +134,12 @@ def get_settings() -> Settings:
     for env_file in _ENV_FILES:
         if env_file.exists():
             load_dotenv(env_file, override=False)
+    # Opik's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not; with
+    # two clients (ours and @track's) that was about 15,850 pings a day (#62). After any failed
+    # send or ping, Opik holds every trace locally until the next successful ping, and loses them
+    # if the backend stops first; 60 s keeps that wait to a minute at about 2,880 pings a day
+    # (founder, 26 Nov 2026: "Every 60 seconds (Recommended)"). Set here, after the .env files,
+    # so a value there or in the environment wins; Opik reads it when a client is created, which
+    # is after configure_opik() at start-up.
+    os.environ.setdefault("OPIK_CONNECTION_MONITOR_PING_INTERVAL", "60")
     return Settings()

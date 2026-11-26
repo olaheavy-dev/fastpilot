@@ -52,7 +52,10 @@ def test_an_env_file_cannot_switch_telemetry_back_on(value):
 # pinged about every 6 seconds: 15,853 requests in 26 hours. After a failed send or ping, traces
 # wait locally until the next successful ping, so the interval is also the longest wait. Founder,
 # 26 Nov 2026: "Every 60 seconds (Recommended)": about 2,880 pings a day, at most a minute's wait.
-_PING = "import app, opik.config as c; print(c.OpikConfig().connection_monitor_ping_interval)"
+_PING = (
+    "import app.config as c, opik.config as o; c._ENV_FILES = (); c.get_settings(); "
+    "print(o.OpikConfig().connection_monitor_ping_interval)"
+)
 
 
 def test_opik_pings_every_minute_by_default():
@@ -62,3 +65,14 @@ def test_opik_pings_every_minute_by_default():
 def test_an_env_file_can_still_set_the_opik_ping_interval():
     """Defaulted, not forced: a different interval is an operations choice, not a privacy rule."""
     assert _run(_PING, OPIK_CONNECTION_MONITOR_PING_INTERVAL="300") == "300.0"
+
+
+def test_the_repo_env_file_can_set_the_opik_ping_interval(tmp_path):
+    """A developer's `.env` is loaded by get_settings(); the default must not shadow it (Codex, #78)."""
+    env = tmp_path / ".env"
+    env.write_text("OPIK_CONNECTION_MONITOR_PING_INTERVAL=120\n")
+    code = (
+        f"import app.config as c, opik.config as o, pathlib; c._ENV_FILES = (pathlib.Path({str(env)!r}),); "
+        "c.get_settings(); print(o.OpikConfig().connection_monitor_ping_interval)"
+    )
+    assert _run(code) == "120.0"

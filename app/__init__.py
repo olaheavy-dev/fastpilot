@@ -24,9 +24,3 @@ os.environ["HAYSTACK_TELEMETRY_ENABLED"] = "False"
 os.environ["OPIK_SENTRY_ENABLE"] = "false"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
-# Opik's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not; with two
-# clients (ours and @track's) that was about 15,850 pings a day (#62). After any failed send or
-# ping, Opik holds every trace locally until the next successful ping, and loses them if the
-# backend stops first; 60 s keeps that wait to a minute at about 2,880 pings a day (founder,
-# 26 Nov 2026: "Every 60 seconds (Recommended)"). Defaulted, not forced: an env file may change it.
-os.environ.setdefault("OPIK_CONNECTION_MONITOR_PING_INTERVAL", "60")
