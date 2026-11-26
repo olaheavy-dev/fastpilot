@@ -19,6 +19,8 @@ CDN_VS = "https://cdn.jsdelivr.net/npm/monaco-editor@0.36.1/min/vs"
 # Relative to the component's index.html, which Streamlit serves under /component/<name>/.
 LOCAL_VS = "./monaco/vs"
 _CDN_HOST = "cdn.jsdelivr.net"
+# Files the image copies to build/monaco/vs (frontend/Dockerfile); the editor cannot start without them.
+_REQUIRED = ("loader.js", "editor/editor.main.js")
 
 
 class PatchError(RuntimeError):
@@ -30,7 +32,16 @@ def _bundle_files(build_dir: Path) -> list[Path]:
 
 
 def patch_bundle(build_dir: Path, local_vs: str = LOCAL_VS) -> int:
-    """Replace ``CDN_VS`` with ``local_vs`` in the bundle; return the number of files changed."""
+    """Replace ``CDN_VS`` with ``local_vs`` in the bundle; return the number of files changed.
+
+    Refuses to patch unless Monaco's files are beside the bundle: a browser that gets 404s there
+    shows an empty editor (not the plain text box), and no other check would notice. This also
+    stops an accidental run against a developer's own virtual environment.
+    """
+    vs = build_dir / "monaco" / "vs"
+    missing = [name for name in _REQUIRED if not (vs / name).is_file()]
+    if missing:
+        raise PatchError(f"Monaco files missing in {vs}: {', '.join(missing)} (check the COPY path in the Dockerfile)")
     changed = 0
     already = False
     for path in _bundle_files(build_dir):

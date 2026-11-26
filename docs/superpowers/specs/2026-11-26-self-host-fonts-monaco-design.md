@@ -20,7 +20,7 @@ Each visit to fastpilot.olaheavy.dev makes the visitor's browser contact two out
 
 ## Anti-goals
 
-- The editor quietly falls back to the plain text box in production because Monaco failed to load. That would pass every unit test and still be a failure. The browser check below must see Monaco itself.
+- Playground's editor stays empty in production because Monaco's files failed to load. (Correction, 26 Nov 2026, from the branch review: a failed load in the browser shows an empty or "Loading…" box, not the plain text box, which appears only when the Python component fails.) That would pass every unit test and still be a failure. The patch script now refuses to run unless Monaco's files are beside the bundle, and the browser check must see the editor working.
 - A build that silently takes a different Monaco file than the one checked.
 
 ## How it works today

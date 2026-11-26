@@ -90,9 +90,18 @@ def test_font_licences_shipped():
 
 # --- Monaco: streamlit-monaco's bundle names jsDelivr; the image build rewrites it -------------
 
+def _add_monaco_files(build: Path) -> None:
+    """Stand-ins for the files the image copies to build/monaco/vs (frontend/Dockerfile)."""
+    vs = build / "monaco" / "vs"
+    (vs / "editor").mkdir(parents=True)
+    (vs / "loader.js").write_text("// loader")
+    (vs / "editor" / "editor.main.js").write_text("// editor")
+
+
 def _copy_build(tmp_path: Path) -> Path:
     dest = tmp_path / "build"
     shutil.copytree(package_build_dir(), dest)
+    _add_monaco_files(dest)
     return dest
 
 
@@ -107,13 +116,25 @@ def test_patch_rewrites_real_bundle(tmp_path):
     assert len(_files_containing(build, f'"{LOCAL_VS}"')) == 1
 
 
+def test_patch_fails_when_monaco_files_missing(tmp_path):
+    """A wrong COPY path (say, a new Python version in the base image) must stop the build: the
+    browser would get 404s and an empty editor, not the plain text box."""
+    build = tmp_path / "build"
+    shutil.copytree(package_build_dir(), build)
+    with pytest.raises(PatchError, match="Monaco files missing"):
+        patch_bundle(build)
+    assert _files_containing(build, CDN_VS) != []  # nothing rewritten
+
+
 def test_patch_fails_when_address_missing(tmp_path):
+    _add_monaco_files(tmp_path)
     (tmp_path / "chunk.js").write_text('const vs = "somewhere/else";')
     with pytest.raises(PatchError, match="not found"):
         patch_bundle(tmp_path)
 
 
 def test_patch_fails_on_leftover_cdn(tmp_path):
+    _add_monaco_files(tmp_path)
     (tmp_path / "a.js").write_text(f'paths:{{vs:"{CDN_VS}"}}')
     (tmp_path / "b.js").write_text('load("https://cdn.jsdelivr.net/npm/other@1/x.js")')
     with pytest.raises(PatchError, match="still"):
@@ -130,7 +151,7 @@ def test_patch_is_idempotent_failure_message(tmp_path):
 def test_main_reports_failure_with_exit_code(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(monaco_patch, "package_build_dir", lambda: tmp_path)
     assert monaco_patch.main() == 1
-    assert "not found" in capsys.readouterr().err
+    assert "Monaco files missing" in capsys.readouterr().err
 
 
 def test_installed_package_not_modified():

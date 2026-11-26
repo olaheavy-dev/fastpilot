@@ -25,7 +25,7 @@
 
 ## Review Focus
 
-1. **Monaco fails to load and Playground quietly shows the plain editor.** Every unit test still passes. Pinned by the browser check in Task 3, step 6 (the "Plain editor" caption must not appear).
+1. **Monaco fails to load and Playground's editor stays empty** (corrected after the branch review: a browser-side failure does not show the plain editor). Every unit test still passes. Pinned by the browser check in Task 3, step 6 (the "Plain editor" caption must not appear).
 2. **A future `streamlit-monaco` moves or reformats the address** (another chunk file, or a different version string). `patch_bundle` must fail, not succeed with zero replacements: Task 2, `test_patch_fails_when_address_missing`.
 3. **The relative path resolves against the wrong base** (the chunk's folder instead of the component page), so the loader requests `/_next/static/chunks/monaco/vs/...`. Pinned by the network check in Task 3, step 6 (every `vs/` request returns 200 from our host).
 4. **Running the patch twice** (a rebuild that reuses a layer, or a developer running it locally) must not double-rewrite or fail confusingly: Task 2, `test_patch_is_idempotent_failure_message`.
