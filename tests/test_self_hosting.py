@@ -36,13 +36,27 @@ FONT_FACES = [
 _ALLOWED = {"monaco_patch.py"}
 
 
-def _frontend_text_files():
-    for path in FRONTEND.rglob("*"):
-        if not path.is_file() or "__pycache__" in path.parts:
+_SKIP_DIRS = {"__pycache__", "node_modules"}
+
+
+def _frontend_text_files(root: Path = FRONTEND):
+    for path in sorted(root.rglob("*")):
+        parts = path.relative_to(root).parts[:-1]
+        if not path.is_file() or any(p in _SKIP_DIRS or (p.startswith(".") and p != ".streamlit") for p in parts):
             continue
         if path.suffix in {".woff2", ".pyc"} or path.name.startswith("OFL-") or path.name in _ALLOWED:
             continue
         yield path
+
+
+def test_scan_skips_installed_and_hidden_folders(tmp_path):
+    """A local `node_modules` or `.venv` inside frontend/ is not our code; scanning it would be
+    slow and could fail on third-party files."""
+    for folder in ("node_modules", ".venv"):
+        (tmp_path / folder).mkdir()
+        (tmp_path / folder / "x.js").write_text("https://cdn.jsdelivr.net/npm/x")
+    (tmp_path / "ours.py").write_text("x = 1")
+    assert [p.name for p in _frontend_text_files(tmp_path)] == ["ours.py"]
 
 
 def test_no_third_party_hosts_in_frontend():
