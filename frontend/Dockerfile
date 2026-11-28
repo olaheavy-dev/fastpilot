@@ -3,7 +3,7 @@
 # --- Monaco editor files, served from our own site instead of jsDelivr (#65) -----------------
 # streamlit-monaco 0.1.3 is built for monaco-editor 0.36.1. Change MONACO_VERSION and
 # MONACO_SHA256 only together with streamlit-monaco (#69), and re-check monaco_patch.py.
-FROM python:3.12-slim AS monaco
+FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b AS monaco
 ARG MONACO_VERSION=0.36.1
 ARG MONACO_SHA256=0ffa1c42ef6939339031a1e9c72af6cc863773febe992b85a746dc24a6e07251
 RUN python - <<EOF
@@ -22,7 +22,7 @@ print(f"monaco-editor ${MONACO_VERSION}: {len(members)} files, SHA-256 checked")
 EOF
 
 # --- The app ----------------------------------------------------------------------------------
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:191083cdf6c7bda8c76158983163ead5d5cf7b77cf3033e805bb0f5296f51b4b
 
 WORKDIR /srv
 

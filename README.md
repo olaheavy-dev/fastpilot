@@ -7,13 +7,13 @@
 A production **RAG** system that closes the loop from reading to running:
 **Understand → Watch → Practice.**
 
-[![CI](https://github.com/sunkanmi-olawuwo/fastpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/sunkanmi-olawuwo/fastpilot/actions/workflows/ci.yml)
+[![CI](https://github.com/olaheavy-dev/fastpilot/actions/workflows/ci.yml/badge.svg)](https://github.com/olaheavy-dev/fastpilot/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11–3.13-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Tests](https://img.shields.io/badge/tests-213%20passing-brightgreen)
 ![Coverage gate](https://img.shields.io/badge/coverage-≥90%25-brightgreen)
 
-**[Video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f)** · **[Docs & architecture](https://github.com/sunkanmi-olawuwo/fastpilot/wiki)**
+**[Video walkthrough](https://www.loom.com/share/a1d6bf3ee7c54e5c93de4ac8c280992f)** · **[Docs & architecture](https://github.com/olaheavy-dev/fastpilot/wiki)**
 
 <img src="docs/screenshots/01-welcome.png" alt="FastPilot welcome screen" width="780">
 
@@ -176,7 +176,7 @@ REDIS_HOST=localhost REDIS_PORT=6380 REDIS_SSL=false uv run pytest -m integratio
 
 | Doc | Covers |
 |---|---|
-| [Developer wiki](https://github.com/sunkanmi-olawuwo/fastpilot/wiki) ([`wiki/`](wiki/)) | architecture, endpoints, conventions, testing, feature coverage (start here) |
+| [Developer wiki](https://github.com/olaheavy-dev/fastpilot/wiki) ([`wiki/`](wiki/)) | architecture, endpoints, conventions, testing, feature coverage (start here) |
 | [`docs/scoping.md`](docs/scoping.md) | the problem, the user, the corpus |
 | [`docs/chunking-strategy.md`](docs/chunking-strategy.md) · [`docs/retrieval-strategy.md`](docs/retrieval-strategy.md) | chunking + the T1b retrieval pipeline |
 | [`docs/production-decisions.md`](docs/production-decisions.md) | every production service as an add/skip decision |

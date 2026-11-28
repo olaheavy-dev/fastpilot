@@ -5,6 +5,41 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-26 — 48-hour watch done; sha-e97ff28 deployed
+
+- The 22d watch ended healthy (figures in infra#128); the founder kept Agent and Playground on. Deployed `sha-e97ff28` at 22:42 UTC: fonts and Monaco from our own site, Opik pings once a minute, pinned base images, `.dockerignore`, plus #47, #49, #63, #66. Checks after: health, `Qdrant/bm25` loaded, no outside requests in either theme.
+
+## 2026-11-26 — Session hand-over (evening)
+
+- **Merged:** #73 (fonts and Monaco self-hosted), #74, #75, #77, #78, #81 (video route), #82 (demo tools), #83, #84 (script approved, four ports); Dependabot #51, #57, #58, #59, #60. Closed infra #102 (uptime) and #38, #62, #65, #70, #72.
+- **Opened:** #69 (Monaco upgrade, no known vulnerabilities), #71 and #76 (image hardening), #79 (one Opik client), #80 (Dependabot); agent-workflows#64 (review minors are fixed in rounds 1–2, not deferred).
+- **Learned:** local ruff lagged CI (0.15.18 vs 0.17.5) until `uv sync --locked --all-extras`; Dependabot did not answer `@dependabot rebase`, `gh pr update-branch --rebase` did; the live site's 5 Agent runs a day limit applies to demo takes too.
+- **Next:** the 48-hour check and deploy tonight (`docs/planning/status.md`).
+
+## 2026-11-26 — Demo script: four ports from the Loom demo and Foresight (#20)
+
+- `tools/demo/script.md` now opens on the problem, adds a follow-up scene ("can I make it expire?", the "searched as" note), mentions the Agent's self-correction, adds the stack to the retrieval explainer and closes on "learn FastAPI, fast" (founder's choice: all four). Scenes renumbered to 9; `walkthrough.py` has the follow-up action. The founder approved the changed lines the same day. Live check: the follow-up scene worked; the Agent scene hit the live site's 5-runs-a-day limit (noted in `docs/demo-video.md`).
+
+## 2026-11-26 — Demo video, part A: capture tools (#20)
+
+- `tools/demo/` (outside the app and its images, own environment): `narrate.py` (from Foresight; cloned voice, labelled AI-generated), `script.md` (8 scenes, sources as comments), `walkthrough.py` (Playwright on the live site, held to the narration; switches the semantic cache off so the answer streams; screenshot on a failed scene) and `manifest.py` (hands footage windows and audio to part B, Remotion in personal-website). How-to: `docs/demo-video.md`. Live selector check on the live site: two clean runs end to end.
+
+## 2026-11-26 — Opik pings every minute, not every 6 seconds (#62)
+
+- Cause: Opik SDK 2.0.73's connection monitor pings `is-alive/ping` every 10 s per client, traffic or not, and the backend has two clients (`observability.opik_client()` and `@track`'s cached client). Reproduced against a local stand-in server: 4 pings in 31 s with one client, 8 with two, 2 with a 300 s interval. `app/config.get_settings()` now defaults `OPIK_CONNECTION_MONITOR_PING_INTERVAL=60` after loading `.env` (so a value there wins; Codex review) (founder: "Every 60 seconds (Recommended)"): the interval is also the longest time traces wait after a failed send, and they are lost if the backend stops first. `tests/test_telemetry.py` checks it.
+
+## 2026-11-26 — Base images pinned by digest (#72)
+
+- All three Dockerfiles use `python:3.12-slim@sha256:191083cd…`; Dependabot's `docker` updates move them together (weekly, 7-day cooldown, 3.12 only). `tests/test_base_images.py` checks the pins and the config. Pages touched: [[dependency-updates]].
+
+## 2026-11-26 — Frontend `.dockerignore` (#70)
+
+- `frontend/.dockerignore` keeps `__pycache__`, `.DS_Store`, top-level Markdown notes and `railway.toml` out of the frontend image; `tests/test_self_hosting.py` checks the app's files are never ignored. Built image checked: only the app, `.streamlit/` and the fonts with their licences.
+
+## 2026-11-26 — Old repository links (#38)
+
+- README badge and links, and essay links in [[feature-coverage]], [[overview]] and [[component-architecture]], now point to `olaheavy-dev/fastpilot` (the repository moved in #26). Older log entries keep the old name as history.
+
 ## 2026-11-26 — Fonts and Monaco from our own site (#65)
 
 - Visitors' browsers no longer contact Google Fonts or jsDelivr: font files in `frontend/static/fonts/`; Monaco 0.36.1 downloaded and SHA-256 checked in the frontend image build, its address rewritten by `frontend/monaco_patch.py`. Browser check of the built image: Chat and Playground make no outside requests; Monaco loads all files from `/component/…/monaco/vs/`.

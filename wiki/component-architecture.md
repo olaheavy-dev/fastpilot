@@ -15,7 +15,7 @@ Plus cross-cutting modules: `config.py` (settings), `observability.py` (Opik shi
 
 > Every production service below is an explicit **add / skip decision** with a rationale —
 > the full reasoning (and what was *skipped*) is in the
-> [production-decisions essay](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs/production-decisions.md).
+> [production-decisions essay](https://github.com/olaheavy-dev/fastpilot/blob/main/docs/production-decisions.md).
 
 ## Services (`app/services/`)
 
@@ -45,8 +45,8 @@ flowchart LR
 > *skipped*. The index it retrieves over is built by a hybrid **AST (code) + markdown-recursive
 > (prose)** chunker; migrating **BGE → Voyage-4-lite (2048-d)** removed **27.9% silent chunk
 > truncation**. Full essays:
-> [retrieval-strategy](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs/retrieval-strategy.md) ·
-> [chunking-strategy](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs/chunking-strategy.md).
+> [retrieval-strategy](https://github.com/olaheavy-dev/fastpilot/blob/main/docs/retrieval-strategy.md) ·
+> [chunking-strategy](https://github.com/olaheavy-dev/fastpilot/blob/main/docs/chunking-strategy.md).
 
 ### Semantic cache — `semantic_cache.py`
 Redis **HNSW vector search** for sub-50 ms answers to repeated/paraphrased queries. Returns
@@ -99,7 +99,7 @@ Framework-light and fully unit-testable: inject a fake `pipeline` + fake `execut
 > **≤2-fix self-correction loop lifts it to 100%** (+50 pts) across the 10 golden tasks. **93%**
 > of cited chunks mention the API used, and fix-from-traceback recovers **3 / 3** broken snippets.
 > Full essay:
-> [augmentation-decisions](https://github.com/sunkanmi-olawuwo/fastpilot/blob/main/docs/augmentation-decisions.md).
+> [augmentation-decisions](https://github.com/olaheavy-dev/fastpilot/blob/main/docs/augmentation-decisions.md).
 
 ### Sandboxed code executor — `code_executor.py`
 The one net-new piece with no off-the-shelf equivalent. Runs agent/user FastAPI code behind
