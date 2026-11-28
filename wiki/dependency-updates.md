@@ -21,6 +21,10 @@ The first alert scan found 138 open alerts, all in **indirect** packages; PR #47
 - **`lockfile-only`:** Dependabot changes only `uv.lock`, never `pyproject.toml` (every bound there is an open `>=`). Check the first pull request's diff to confirm.
 - At most 5 open pull requests per ecosystem.
 
+## Bringing a branch up to date
+
+The repository's ruleset lets a pull request merge only when its branch is up to date with `main`. For a GitHub Actions, base-image or `docker-compose` pull request, use an **update merge**: `gh pr update-branch <number>` without `--rebase`. It adds one merge commit and rewrites nothing; the squash merge still leaves one commit on `main`. A rebase rewrites the branch, which is a force-push. Founder's choice, 28 Nov 2026: "Update merge (Recommended)". The update makes a new head commit, so ask `@codex review` again before merging (agent-workflows#66 asks whether an unchanged diff needs this). After an update merge, Dependabot no longer rebases that branch: resolve later conflicts with another update merge. `uv` pull requests are different: follow step 6 below.
+
 ## Handling a `uv` pull request
 
 Dependabot changes only `uv.lock`. The images install from `app/constraints.txt` and `frontend/constraints.txt`, and CI checks that they match the lock. So **every `uv` pull request fails CI at first.** That is expected, not a broken update.

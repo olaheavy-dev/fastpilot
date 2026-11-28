@@ -5,6 +5,11 @@ rule 4). Keep entries short: what changed, why, and which wiki pages were touche
 
 ---
 
+## 2026-11-28 — Image-publishing action bumps merged
+
+- Merged #53 (checkout 5→7), #54 (setup-buildx 3→4), #55 (login-action 3→4), #56 (metadata-action 5→6) and #80 (build-push-action 6→7) one at a time (each updated with `main` by update merge, except #56, which Dependabot rebased itself); Codex clean on each latest commit, and each publish on `main` passed (GHCR login worked on v4; the last images are `sha-3bd7461`). Production stays on `sha-e97ff28` until the next deploy.
+- **Changed:** branches are now brought up to date by update merge, not `gh pr update-branch --rebase` (a force-push; the 26 Nov entry below said the rebase worked). [[dependency-updates]] gained "Bringing a branch up to date". Process issue: agent-workflows#66.
+
 ## 2026-11-26 — 48-hour watch done; sha-e97ff28 deployed
 
 - The 22d watch ended healthy (figures in infra#128); the founder kept Agent and Playground on. Deployed `sha-e97ff28` at 22:42 UTC: fonts and Monaco from our own site, Opik pings once a minute, pinned base images, `.dockerignore`, plus #47, #49, #63, #66. Checks after: health, `Qdrant/bm25` loaded, no outside requests in either theme.

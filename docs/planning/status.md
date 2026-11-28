@@ -2,23 +2,23 @@
 
 The current state, the planned work and the open to-dos. Keep this file current: any pull request that changes what is done, open or next updates it. The history lives in [`wiki/log.md`](../../wiki/log.md).
 
-**Updated:** 26 Nov 2026, 22:50 UTC (48-hour watch done, Agent and Playground stay on; `sha-e97ff28` deployed)
+**Updated:** 28 Nov 2026, 14:00 UTC (the five image-publishing bumps merged; images publish cleanly as `sha-3bd7461`; production still on `sha-e97ff28`)
 
 ## Start of the next session
 
-1. **Image-publishing bumps** #53, #54, #55, #56 and #80 (#53 to #56 reviewed, Codex clean; #80 needs a review). Merge one at a time and watch the first image publish on `main`.
-2. **Showcase video (#20):** the founder records a 20-second voice sample (`docs/demo-video.md`, step 1); then render the narration and record the real take (after midnight UTC, when the Agent limit has reset). Then part B in personal-website ([plan](../superpowers/plans/2026-11-26-showcase-video-remotion.md)), starting with the Remotion approval PR (founder merge).
-3. #52 (Qdrant image): the local snapshot check, then a founder merge and a deploy at a quiet time.
-4. Infra 22e step 5 (App Registry and docs) and infra#128 (the 22d record).
-5. Then Part 0 of the corpus refresh (#29), which needs your three R2 tokens.
+1. **Showcase video (#20):** the founder records a 20-second voice sample (`docs/demo-video.md`, step 1); then render the narration and record the real take (after midnight UTC, when the Agent limit has reset). Then part B in personal-website ([plan](../superpowers/plans/2026-11-26-showcase-video-remotion.md)), starting with the Remotion approval PR (founder merge).
+2. #52 (Qdrant image): the local snapshot check, then a founder merge and a deploy at a quiet time.
+3. Infra 22e step 5 (App Registry and docs). The 22d record (infra#128) merged.
+4. Then Part 0 of the corpus refresh (#29), which needs your three R2 tokens.
 
 ## Open pull requests
 
-All Dependabot. None is a security fix, and none reaches production until a deploy (`wiki/dependency-updates.md`). Each branch must be brought up to date with `main` before it merges (the repository's ruleset): `gh pr update-branch <n> --rebase` worked today when Dependabot did not answer `@dependabot rebase`.
+All Dependabot. None is a security fix, and none reaches production until a deploy (`wiki/dependency-updates.md`). Each branch must be brought up to date with `main` before it merges (the repository's ruleset). Use an update merge, `gh pr update-branch <n>` without `--rebase`: a rebase rewrites the branch, which is a force-push (your choice, 28 Nov: "Update merge (Recommended)"). The update makes a new head commit, so ask `@codex review` again before merging (agent-workflows#66 asks whether that is needed).
 
-- **After tonight's deploy (image-publishing workflow):** #53 actions/checkout 5→7, #54 docker/setup-buildx-action 3→4, #55 docker/login-action 3→4, #56 docker/metadata-action 5→6 (reviewed, Codex clean; #55's login step is skipped on pull requests, so the first publish on `main` is its real test), and #80 docker/build-push-action 6→7 (opened 26 Nov; review first).
 - **Founder merge:** #52 qdrant/qdrant v1.18.0→v1.18.3 (`deploy/`): the local check against a restored snapshot, then a deploy at a quiet time. `qdrant-client` stays on 1.18.
 - **New kind, from #77:** one grouped weekly PR moves the `python:3.12-slim` digest in the backend, frontend and runner Dockerfiles together. Merge on green checks. Check that the first one really is a single PR (Dependabot run logs).
+
+Merged on 28 Nov: #53, #54, #55, #56, #80 (image-publishing actions; each publish on `main` passed, and the GHCR login worked on v4).
 
 Merged on 26 Nov: #51, #57, #58, #59, #60 (Dependabot); #73, #74, #75, #77, #78, #81, #82, #83, #84.
 
@@ -26,7 +26,7 @@ Infra: none.
 
 ## Where we are
 
-- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts (8 critical, 83 high, 44 moderate, 3 low) in indirect packages in `uv.lock`, each shipping in the backend image, the frontend image or both. #47 (merged) clears all 138 by upgrading the lock; an OSV scan of the new lock finds none. Your choices: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67 and fastembed 0.9.1; and "Upgrade, approve boto3 (Recommended)" for litellm 1.111, which puts `boto3` in the backend image. Deploy it **after** the 48-hour watch ends (26 Nov, about 21:20 UTC), then re-run the public checks. Weekly update PRs start when the config merges (your choice: "Yes, after the alert fix (Recommended)"). Each `uv` PR needs `scripts/export_constraints.sh` run on its branch before CI passes (`wiki/dependency-updates.md`).
+- **Security alerts (25 Nov):** Dependabot alerts are now on (they were off). They found 138 open alerts (8 critical, 83 high, 44 moderate, 3 low) in indirect packages in `uv.lock`, each shipping in the backend image, the frontend image or both. #47 (merged) clears all 138 by upgrading the lock; an OSV scan of the new lock finds none. Your choices: "Do everything in one go", including Pillow 13, which needs Streamlit 1.67 and fastembed 0.9.1; and "Upgrade, approve boto3 (Recommended)" for litellm 1.111, which puts `boto3` in the backend image. Deployed 26 Nov, 22:42 UTC, after the 48-hour watch, and the public checks passed. Weekly update PRs start when the config merges (your choice: "Yes, after the alert fix (Recommended)"). Each `uv` PR needs `scripts/export_constraints.sh` run on its branch before CI passes (`wiki/dependency-updates.md`).
 - **Live since 24 Nov 2026, 21:22 UTC** at [fastpilot.olaheavy.dev](https://fastpilot.olaheavy.dev), with Chat, Agent and Playground on. **Now on `sha-e97ff28`** (deployed 26 Nov, 22:42 UTC; carries #47, #49, #63, #66, #73, #75, #77, #78). The 48-hour watch (22d) ended healthy: no errors, no OOM, memory peaks under caps, runner restarts only by its 6-hour rule; your choice: Agent and Playground stay on ("Keep them on (Recommended)"). After the deploy: `/health` healthy, `Qdrant/bm25` loaded, Opik pings once a minute per client, and a browser check in both themes found no request to any other site. Details: infra#128.
 - **Themes fixed and deployed (24 Nov, about 23:55 UTC):** the app follows the visitor's system theme (the toggle is removed; your choice: "Follow the system only (Recommended)"), with code, link and border colours set for both themes and a readable Playground editor in dark mode (#40). Production runs `sha-7517b7a`; live checks in both themes passed. You chose "Stay on Streamlit (Recommended)": no React rewrite.
 - **Privacy (25 Nov):** Streamlit usage statistics off (#63); Haystack, Opik's own Sentry crash reports and Hugging Face telemetry forced off (#66); decisions in `docs/production-decisions.md`. Google Fonts and jsDelivr removed by #73 (fonts and Monaco 0.36.1 served from our own site; upgrade weighed in #69, no known vulnerabilities). Opik's connection pings every 60 s, not every 6 s (#78; your choice: "Every 60 seconds (Recommended)").
@@ -53,11 +53,11 @@ flowchart LR
 | 1 | #32 production model | merged 24 Nov | done |
 | 2 | #33 corpus refresh design, plan and this file | merged 24 Nov after five Codex rounds; the three plan follow-ups (#34, #35, #36) folded into the plan and design on 25 Nov | done |
 | 3 | Phase 22c go live (infra plan) | done 24 Nov: steps 1 to 7 passed; live at fastpilot.olaheavy.dev | done |
-| 4 | Phase 22d watch, 22e uptime (infra #102) | 22d now: summaries about 21:20 UTC on 25 and 26 Nov; then 22e | founder (infra) |
+| 4 | Phase 22d watch, 22e uptime (infra #102) | 22d done 26 Nov (infra#128); 22e step 5 next | founder (infra) |
 | 5 | Corpus refresh build (#29), seven PRs: [plan](../superpowers/plans/2026-11-24-corpus-refresh.md), [diagrams](https://claude.ai/artifact/Wjm2iHjE9zDAYvH1taet5R); plan reworked on 24 Nov after two fresh reviews | after go-live; subagent-driven | founder for Parts 0, 1, 2, 3, 5 and the bootstrap lock; agent for Part 4 |
 | 6 | MCP server (#30), with the "About & connect" page in the app, `docs/mcp.md`, and the search-engine work (README, repository topics, a project page on the personal website, the MCP Registry listing) | after the refresh; design first | founder for the hosted part |
 | 7 | Model follow-ups (#31): cost per call, router fallback | backlog | agent |
-| 8 | Showcase video (#20, personal-website#135, #161): one route, [design](../superpowers/specs/2026-11-26-showcase-video-design.md), [diagram](https://claude.ai/artifact/KyL1sNL3rB2qdM96xTNd8F). FastPilot: walkthrough, script, narration; personal-website: Remotion scenes and edit | design and two plans written 26 Nov ([part A](../superpowers/plans/2026-11-26-showcase-video-capture.md), [part B](../superpowers/plans/2026-11-26-showcase-video-remotion.md)); part A's tools built (`tools/demo/`, how-to `docs/demo-video.md`); script approved by the founder 26 Nov, then four ports added and approved; the real take needs the founder's 20 s voice sample and tonight's Agent/Playground decision | founder for the Remotion PR in personal-website and the shot list; agent for the FastPilot capture |
+| 8 | Showcase video (#20, personal-website#135, #161): one route, [design](../superpowers/specs/2026-11-26-showcase-video-design.md), [diagram](https://claude.ai/artifact/KyL1sNL3rB2qdM96xTNd8F). FastPilot: walkthrough, script, narration; personal-website: Remotion scenes and edit | design and two plans written 26 Nov ([part A](../superpowers/plans/2026-11-26-showcase-video-capture.md), [part B](../superpowers/plans/2026-11-26-showcase-video-remotion.md)); part A's tools built (`tools/demo/`, how-to `docs/demo-video.md`); script approved by the founder 26 Nov, then four ports added and approved; the real take needs the founder's 20 s voice sample | founder for the Remotion PR in personal-website and the shot list; agent for the FastPilot capture |
 
 ## Founder to-dos
 
