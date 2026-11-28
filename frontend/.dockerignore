@@ -1,0 +1,9 @@
+# Keep the frontend image to what Streamlit runs (#70). The app needs *.py, requirements.txt,
+# constraints.txt, .streamlit/ and static/ (the self-hosted fonts, #65).
+**/__pycache__
+**/*.pyc
+**/.DS_Store
+*.md
+railway.toml
+Dockerfile
+.dockerignore

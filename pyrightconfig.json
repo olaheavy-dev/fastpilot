@@ -3,6 +3,15 @@
   "venv": ".venv",
   "pythonVersion": "3.11",
   "typeCheckingMode": "standard",
-  "extraPaths": [".", "frontend"],
-  "exclude": ["**/__pycache__", ".venv", ".ruff_cache", ".pytest_cache"]
+  "extraPaths": [
+    ".",
+    "frontend"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    ".ruff_cache",
+    ".pytest_cache",
+    "tools/demo/.venv"
+  ]
 }
